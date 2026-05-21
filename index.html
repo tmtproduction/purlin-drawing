@@ -140,11 +140,10 @@ select option{background:var(--panel)}
 @media print{
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   body{background:#fff!important;display:block!important;height:auto!important;overflow:visible!important;margin:0!important;padding:0!important}
-  #auth-bar,#load-panel,#page-bar{display:none!important}
-  #panel,.toolbar,#right{display:none!important}
+  #auth-bar,#load-panel,#page-bar,#main{display:none!important}
   #print-all{display:block!important}
-  .print-page{page-break-after:always;page-break-inside:avoid}
-  .print-page:last-child{page-break-after:avoid}
+  .print-page{break-after:page;page-break-after:always;page-break-inside:avoid}
+  .print-page:last-child{break-after:avoid;page-break-after:avoid}
   .print-page svg{width:100%!important;height:auto!important;display:block!important}
   @page{margin:4mm;size:A4 landscape}
 }
@@ -263,6 +262,7 @@ select option{background:var(--panel)}
       <text x="595" y="420" text-anchor="middle" font-size="13" fill="#bbb" font-family="Share Tech Mono,monospace">กรอกข้อมูลและกด ▶ สร้าง Drawing</text>
     </svg>
   </div>
+</div><!-- /#right -->
 </div><!-- /#main -->
 
 <!-- ═══ PRINT ALL CONTAINER ═══ -->
@@ -1768,23 +1768,35 @@ window.deletePage=function(idx){
 };
 
 window.printAll=function(){
-  // save & generate current page
+  // 1. บันทึก + generate page ปัจจุบัน
   _pages[_curPage]={..._pages[_curPage],..._captureState()};
   generate();
   _pages[_curPage].svg=document.getElementById('svg-out').innerHTML;
 
-  const hasSvg=_pages.filter(pg=>pg.svg);
-  if(!hasSvg.length){alert('กรุณากด ▶ สร้าง Drawing ก่อน'); return;}
+  // 2. กรองเฉพาะ page ที่ generate แล้ว (ไม่มี placeholder)
+  const PLACEHOLDER='กรอกข้อมูล';
+  const pagesToPrint=_pages.filter(pg=>pg.svg && !pg.svg.includes(PLACEHOLDER));
+  if(!pagesToPrint.length){
+    alert('กรุณากด ▶ สร้าง Drawing ก่อน');
+    return;
+  }
 
+  // 3. สร้าง HTML ใน #print-all
   const container=document.getElementById('print-all');
-  container.innerHTML=_pages
-    .filter(pg=>pg.svg)
-    .map(pg=>`<div class="print-page">
-      <svg width="1190" height="841" viewBox="0 0 1190 841" overflow="hidden" xmlns="http://www.w3.org/2000/svg">
+  container.innerHTML=pagesToPrint.map(pg=>`
+    <div class="print-page">
+      <svg width="1190" height="841" viewBox="0 0 1190 841" overflow="hidden"
+           xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto">
         ${pg.svg}
       </svg>
     </div>`).join('');
-  setTimeout(()=>window.print(), 80);
+
+  // 4. รอ browser render ก่อนเปิด print dialog (requestAnimationFrame 2 รอบ)
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      window.print();
+    });
+  });
 };
 
 /* ── Auto-generate (debounced, after first press) ── */
