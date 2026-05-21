@@ -1699,26 +1699,66 @@ function generate(){
   if(hasSecB)
     s+=drawSection(secBx, secBy, H, B1, B2, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`);
 
-  /* ══ HOLE SCHEDULE ══ */
-  const schedHoles=[...holes].sort((a,b)=>{
-    const fo={TOP:0,WEB:1,BOT:2};
-    return (fo[a.face]??1)-(fo[b.face]??1)||a.X-b.X;
+  /* ══ HOLE SCHEDULE ══
+     เรียงตาม X → ภายใน X เดียวกัน เรียง T,W,B
+     จำนวนรูต่อ hole type: H1=2 slots, H2=2 slots (T+B), H3=1 hole
+  ══ */
+  // กลุ่ม holes โดย X (รวม H2 ที่มี TOP+BOT ที่ X เดียวกัน)
+  // นับ raw rows จาก input table (ก่อน expand เป็น individual face holes)
+  // ใช้ rawHoles เพื่อ deduplicate H2 (TOP+BOT ที่ X เดียวกัน = 1 row)
+  const rawRows=Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>{
+    const inp=tr.querySelectorAll('input,select');
+    return{qty:+inp[0].value||1, face:inp[1].value, X:parseFloat(inp[2].value)||0, holeType:inp[3].value};
   });
+
+  // สร้าง schedule rows ที่ถูกต้อง
+  const schedRows=[];
+  rawRows.forEach(row=>{
+    if(row.holeType==='H2'){
+      // H2 = 1 row แต่เจาะ 2 รู (T+B)
+      schedRows.push({...row, face:'T+B', holeCount:2,
+        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`,
+        yDisp:'B1+B2'});
+    } else if(row.holeType==='H1'){
+      // H1 = 1 row แต่เจาะ 2 slots บน web
+      schedRows.push({...row, face:'W', holeCount:2,
+        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`,
+        yDisp:fmt(H/2-getTMTRow(H).GL/2)+'/'+fmt(H/2+getTMTRow(H).GL/2)});
+    } else if(row.holeType==='H3'){
+      schedRows.push({...row, face:'W', holeCount:1,
+        shapeDisp:`Ø${fmt(18)} Hole`,
+        yDisp:fmt(Math.round(H/2))});
+    } else if(row.face==='TOP'){
+      schedRows.push({...row, face:'T', holeCount:1,
+        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`, yDisp:'(B1)'});
+    } else if(row.face==='BOT'){
+      schedRows.push({...row, face:'B', holeCount:1,
+        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`, yDisp:'(B2)'});
+    } else {
+      schedRows.push({...row, face:'W', holeCount:1,
+        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`, yDisp:fmt(H/2)});
+    }
+  });
+
+  // เรียง: X น้อย→มาก, ภายใน X เดียวกัน เรียง T→W→B
+  const faceOrder={'T':0,'T+B':1,'W':2,'B':3};
+  schedRows.sort((a,b)=>a.X!==b.X ? a.X-b.X : (faceOrder[a.face]??2)-(faceOrder[b.face]??2));
 
   const schY=divY+6;
   s+=SR(SCH_X-4,schY,SCH_W+4,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
   s+=ST(SCH_X-4+(SCH_W+4)/2,schY+10,'HOLE SCHEDULE',8,'middle','#000','bold');
 
   const scols=[
-    {h:'N',      w:20},
-    {h:'หน้า',   w:22},
-    {h:'X (mm)', w:46},
-    {h:'Type',   w:30},
-    {h:'Y (mm)', w:42},
-    {h:'Shape',  w:0},  // fills remaining
+    {h:'N',       w:18},
+    {h:'หน้า',    w:24},
+    {h:'X (mm)',  w:44},
+    {h:'Type',    w:28},
+    {h:'จำนวนรู', w:30},
+    {h:'Y (mm)',  w:40},
+    {h:'Shape',   w:0},
   ];
   const fixedW2=scols.slice(0,-1).reduce((a,c)=>a+c.w,0);
-  scols[scols.length-1].w=Math.max(44,SCH_W-fixedW2-4);
+  scols[scols.length-1].w=Math.max(40, SCH_W-fixedW2-4);
 
   const thY2=schY+14;
   let cx2=SCH_X-2;
@@ -1728,13 +1768,11 @@ function generate(){
     cx2+=col.w;
   });
 
-  schedHoles.forEach((h,i)=>{
+  schedRows.forEach((h,i)=>{
     const ry=thY2+13*(i+1);
     const bg=i%2===0?'#fafaf7':'#eee8d4';
-    const tag=h.face==='WEB'?'W':h.face==='TOP'?'T':'B';
-    const yDisp=h.face==='WEB'?fmt(h.Y):(h.face==='TOP'?'(B1)':'(B2)');
-    const shapeDisp=h.slot?`${SLOT_DH}×${SLOT_WH}`:`Ø${fmt(h.dia)}`;
-    const vals=[String(i+1),tag,fmt(h.X),h.holeType||'—',yDisp,shapeDisp];
+    const vals=[String(i+1), h.face, fmt(h.X), h.holeType||'—',
+                String(h.holeCount), h.yDisp, h.shapeDisp];
     cx2=SCH_X-2;
     scols.forEach((col,j)=>{
       s+=SR(cx2,ry,col.w,13,'#ddd',.3,bg);
@@ -1742,7 +1780,7 @@ function generate(){
       cx2+=col.w;
     });
   });
-  if(!holes.length) s+=ST(SCH_X+SCH_W/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
+  if(!schedRows.length) s+=ST(SCH_X+SCH_W/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
 
   /* ══ TITLE BLOCK ══ */
   s+=drawTitleBlock(tb,purlinLabel,TB_Y, _curPage+1, _pages.length);
