@@ -975,12 +975,20 @@ function placeCalloutSingle(hx,hy,lbl,preferAbove=true,holeType){
     }
     return null;
   }
-  const BASE=22,STEP=16;
+  const BASE=26,STEP=18;
+  // Expand candidate positions — prefer side with more space, add more steps
   const oys=preferAbove
-    ?[hy-BASE,hy+BASE,hy-BASE-STEP,hy+BASE+STEP,hy-BASE-STEP*2,hy-BASE-STEP*3]
-    :[hy+BASE,hy-BASE,hy+BASE+STEP,hy-BASE-STEP,hy+BASE+STEP*2,hy+BASE+STEP*3];
-  const oxs=[hx,hx+bw*0.5,hx-bw*0.5,hx+bw,hx-bw];
+    ?[hy-BASE,hy-BASE-STEP,hy-BASE-STEP*2,hy-BASE-STEP*3,hy-BASE-STEP*4,
+      hy+BASE,hy+BASE+STEP,hy+BASE+STEP*2]
+    :[hy+BASE,hy+BASE+STEP,hy+BASE+STEP*2,hy+BASE+STEP*3,hy+BASE+STEP*4,
+      hy-BASE,hy-BASE-STEP,hy-BASE-STEP*2];
+  const oxs=[hx,hx+bw*0.4,hx-bw*0.4,hx+bw*0.8,hx-bw*0.8];
   for(const coy of oys)for(const cox of oxs){const res=tryAt(cox,coy);if(res)return res;}
+  // Last-resort: keep going further in preferred direction
+  for(let ex=5;ex<=10;ex++){
+    const fallY=preferAbove?hy-BASE-STEP*ex:hy+BASE+STEP*ex;
+    const res=tryAt(hx,fallY); if(res) return res;
+  }
   const cx=clampX(oxs[0]),coy=oys[oys.length-1];
   blockBox(cx,coy,bw,bh);
   return pillCallout(cx,coy,lbl,hx,hy,holeType);
@@ -1344,6 +1352,9 @@ function generate(){
   const errs=validate(L,H,B1,B2,D,t,holes);
   showVal(errs); if(errs.length) return;
   _cboxes=[];
+  // Pre-register zone boundaries — callouts cannot cross these
+  // Web/Top view divider strip (2px buffer each side)
+  // (registered after tvY is computed, done inline below)
 
   const tb={
     proj:document.getElementById('tbProj').value,
@@ -1372,19 +1383,19 @@ function generate(){
   const TB_Y=SH-MB;
   const CONTENT_H=TB_Y-MT;
 
-  // Web View zone (35%)
-  const WEB_H=Math.round(CONTENT_H*0.37);
+  // Web View zone — ขยายให้พอสำหรับ callout ด้านบน/ล่าง
+  const WEB_H=Math.round(CONTENT_H*0.42);
   const tvY=MT+WEB_H;   // top-view zone starts here
 
-  // Top View zone (13%)
-  const TV_H=Math.round(CONTENT_H*0.13);
+  // Top View zone — เพิ่มนิดสำหรับ callout B1/B2
+  const TV_H=Math.round(CONTENT_H*0.15);
   const divY=tvY+TV_H;  // section zone starts here
 
-  // Section+Schedule zone (remaining ~38%)
+  // Section+Schedule zone (remaining)
   const SEC_ZONE_H=TB_Y-divY;
 
-  // ── WEB VIEW LAYOUT ──
-  const DPL=58, DPR=22, DPT=44, DPB=32;
+  // ── WEB VIEW LAYOUT ── DPT ใหญ่ขึ้นเพื่อ chain dim + callouts บนหัว
+  const DPL=58, DPR=22, DPT=56, DPB=42;
   const eW=(SW-ML-MR)-DPL-DPR;
   const scX=Math.min(eW/L, 2.2);
   const webPxW=L*scX;
@@ -1393,6 +1404,9 @@ function generate(){
   const scY=webPxH/H;
   const WX=ML+DPL+(eW-webPxW)/2;
   const WY=MT+DPT+(webInner-webPxH)/2;
+  // Pre-register SVG outer margin so pills stay inside drawing
+  _cboxes.push([0, WX-4, 0, SH]);           // left outer margin
+  _cboxes.push([WX+webPxW+4, SW, 0, SH]);   // right outer margin
 
   // ── TOP VIEW LAYOUT (plan: shows flange width as rectangles) ──
   const TV_PAD_T=8, TV_PAD_B=8;
@@ -1440,6 +1454,12 @@ function generate(){
   s+=SL(ML,divY,SW-MR,divY,'#bbb',.5,'5,3');            // top view / section
   s+=SL(SCH_X-5,divY,SCH_X-5,TB_Y,'#bbb',.5,'5,3');    // section / schedule
 
+  // Block zone divider strips — ป้องกัน callout ข้าม zone
+  // Web view floor / top view ceiling
+  _cboxes.push([WX-100, WX+webPxW+100, tvY-6, tvY+6]);
+  // Top view floor / section ceiling
+  _cboxes.push([WX-100, WX+webPxW+100, divY-6, divY+6]);
+
   // Zone labels (left margin) — ใช้ 2 ST แทน \n
   const wvMidY=(MT+tvY)/2;
   s+=ST(ML-10, wvMidY-5,   'WEB', 6.5,'middle','#aaa','normal',`rotate(-90,${ML-10},${wvMidY})`);
@@ -1483,6 +1503,12 @@ function generate(){
   // Centerline
   s+=SL(WX-15,WY+webPxH/2,WX+webPxW+15,WY+webPxH/2,CDIM,.4,'10,5');
 
+  // Pre-register web outline strips so callouts won't overlap the drawing body
+  // Top flange strip
+  _cboxes.push([WX, WX+webPxW, WY-5, WY+5]);
+  // Bottom flange strip
+  _cboxes.push([WX, WX+webPxW, WY+webPxH-5, WY+webPxH+5]);
+
   // Web outline (rectangle = web face)
   s+=SR(WX,WY,webPxW,webPxH,COUT,.8);
   s+=SL(WX,WY,WX+webPxW,WY,COUT,3);                    // top flange (B1) outer edge — เส้นทึบ
@@ -1514,6 +1540,12 @@ function generate(){
 
   /* Y dims LEFT (WEB holes เท่านั้น) */
   const uniqueHY=[...new Set(wHoles.map(h=>h.Y))].sort((a,b)=>a-b);
+  const hDimElvX=WX-20-(uniqueHY.length)*18-16;
+
+  // Pre-register LEFT dim zone so callouts won't overlap
+  // บล็อคพื้นที่ซ้ายตั้งแต่ hDimElvX ถึง WX ตลอดความสูง web
+  _cboxes.push([hDimElvX-8, WX-2, WY-4, WY+webPxH+4]);
+
   uniqueHY.forEach((hy,i)=>{
     const screenY=WY+(H-hy)*scY;
     const dimX=WX-20-i*18;
@@ -1523,8 +1555,13 @@ function generate(){
   });
 
   /* H dim LEFT */
-  const hDimElvX=WX-20-(uniqueHY.length)*18-16;
   s+=DV(hDimElvX, WY, WY+webPxH, `H = ${fmt(H)}`, CDIM, WX, 8);
+
+  // Pre-register CHAIN DIM zone (บนหัว web view) — 2 lanes สูง
+  _cboxes.push([WX-4, WX+webPxW+4, WY-DPT+4, WY-4]);
+
+  // Pre-register L DIM zone (ใต้ web view)
+  _cboxes.push([WX-4, WX+webPxW+4, WY+webPxH+2, WY+webPxH+DPB]);
 
   /* Cut lines A-A — span ทั้ง web view + top view */
   function cutLine(hx, lbl, arrowRight=true, spanToTV=false){
@@ -1598,18 +1635,29 @@ function generate(){
     if(!h1ByX[hole.X]) h1ByX[hole.X]=[];
     h1ByX[hole.X].push(WY+(H-hole.Y)*scY);
   });
+  // Pre-register GL dim boxes first
+  Object.entries(h1ByX).forEach(([xmm,screenYs])=>{
+    if(screenYs.length===2){
+      const hx=WX+parseFloat(xmm)*scX;
+      const [y1,y2]=[Math.min(...screenYs),Math.max(...screenYs)];
+      // GL dim zone: x = hx+14 ถึง hx+50, y = y1 ถึง y2
+      _cboxes.push([hx+12, hx+52, y1-2, y2+2]);
+    }
+  });
   Object.entries(h1ByX).forEach(([xmm,screenYs])=>{
     if(screenYs.length===2){
       const hx=WX+parseFloat(xmm)*scX;
       const [y1,y2]=[Math.min(...screenYs),Math.max(...screenYs)];
       const gl=getTMTRow(H).GL;
-      s+=DV(hx+22,y1,y2,`GL=${fmt(gl)}`,CDIM,null,7); // GL dim to the right of hole pair
+      s+=DV(hx+22,y1,y2,`GL=${fmt(gl)}`,CDIM,null,7);
     }
   });
 
-  // Ribbon/pill callouts grouped by Y row
+  // Ribbon/pill callouts grouped by Y row — above/below แยกตาม web midline
+  const webMidY=WY+webPxH/2;
   Object.values(webHolesByY).forEach(group=>{
-    const above=group[0].hy<(WY+webPxH/2);
+    // ถ้า Y > webMid = รูบน → callout ขึ้นบน; รูล่าง → callout ลงล่าง
+    const above=group[0].hy < webMidY;
     s+=renderHoleCallouts(group,above);
   });
 
@@ -1661,8 +1709,10 @@ function generate(){
   s+=SL(WX+webPxW,tvWYb1-4,WX+webPxW,tvWYb2bot+4,COUT,.8); // right end
 
   /* B1, B2 dims — LEFT side of Top View */
-  s+=DV(WX-16, tvWYb1, tvWYb2,    `B1=${fmt(B1)}`, CDIM, WX, 6.5);
-  s+=DV(WX-34, tvWYb2, tvWYb2bot, `B2=${fmt(B2)}`, CDIM, WX, 6.5);
+  // Pre-register left dim zone of top view
+  _cboxes.push([WX-52, WX-2, tvWYb1-2, tvWYb2bot+2]);
+  s+=DV(WX-16, tvWYb1, tvWYb2,    `B1=${fmt(B1)}`, CDIM, WX, 7);
+  s+=DV(WX-34, tvWYb2, tvWYb2bot, `B2=${fmt(B2)}`, CDIM, WX, 7);
 
   /* B-B cut lines — TOP/BOT X positions ONLY */
   const topCutXs=[...new Set([...tHoles,...bHoles].map(h=>h.X))].sort((a,b)=>a-b);
@@ -1690,6 +1740,7 @@ function generate(){
     }
     s+=SL(hx-3,cy,hx+3,cy,'#555',.4,'3,2');
     s+=SL(hx,cy-3,hx,cy+3,'#555',.4,'3,2');
+    // TOP face: callout must go ABOVE top view zone (preferAbove=true, constrained)
     s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,true,'H2');
   });
 
@@ -1705,6 +1756,7 @@ function generate(){
     } else {
       s+=`<circle cx="${r(hx)}" cy="${r(cy)}" r="${r(hr,2)}" stroke="#555" stroke-width="0.7" fill="white" stroke-dasharray="3,2"/>`;
     }
+    // BOT face: callout must go BELOW bottom view zone (preferAbove=false)
     s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,false,'H2');
   });
 
@@ -1737,8 +1789,9 @@ function generate(){
       _mm:x
     }));
     tvChainPts[0].lbl='';
-    // Place chain dim at top of top view zone
-    s+=chainDim(tvChainPts, tvWYb1-20, CDIM, tvWYb1);
+    // Pre-register chain dim zone above top view
+    _cboxes.push([WX-4, WX+webPxW+4, tvWYb1-42, tvWYb1-2]);
+    s+=chainDim(tvChainPts, tvWYb1-22, CDIM, tvWYb1);
   }
 
   /* ════════════════════════
