@@ -142,10 +142,19 @@ select option{background:var(--panel)}
   body{background:#fff!important;display:block!important;height:auto!important;overflow:visible!important;margin:0!important;padding:0!important}
   #auth-bar,#load-panel,#page-bar,#main{display:none!important}
   #print-all{display:block!important}
-  .print-page{break-after:page;page-break-after:always;page-break-inside:avoid}
+  .print-page{
+    break-after:page;page-break-after:always;
+    page-break-inside:avoid;break-inside:avoid;
+    overflow:hidden;
+  }
   .print-page:last-child{break-after:avoid;page-break-after:avoid}
-  .print-page svg{width:100%!important;height:auto!important;display:block!important}
-  @page{margin:4mm;size:A4 landscape}
+  .print-page svg{
+    display:block!important;
+    width:100%!important;
+    height:auto!important;
+    max-height:196mm!important;
+  }
+  @page{margin:5mm;size:A4 landscape}
 }
 </style>
 </head>
