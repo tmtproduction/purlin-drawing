@@ -65,10 +65,11 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);di
 .ab-green{background:var(--accent2);color:#04080f}
 .ab-green:hover{background:#56d364}
 .ab-red{color:#f0a0a0;border-color:var(--border)}
-#load-panel{display:none;position:fixed;top:38px;right:0;width:310px;
+#load-panel{display:none;position:fixed;top:38px;right:0;width:320px;
   height:calc(100vh - 38px);background:var(--panel);border-left:1px solid var(--border);
-  z-index:9998;overflow-y:auto;padding:12px;
-  font-family:'Share Tech Mono',monospace}
+  z-index:10000;overflow-y:auto;padding:12px;
+  font-family:'Share Tech Mono',monospace;
+  box-shadow:-4px 0 20px rgba(0,0,0,.5)}
 .drawing-card{border:1px solid var(--border);border-radius:4px;padding:8px;
   margin-bottom:6px;background:var(--bg);cursor:pointer;transition:border-color .15s}
 .drawing-card:hover{border-color:var(--accent)}
@@ -174,10 +175,15 @@ select option{background:var(--panel)}
 
 <!-- ═══ PROJECT PANEL ═══ -->
 <div id="load-panel">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <span style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:1px;font-family:'Share Tech Mono',monospace">MY PROJECTS</span>
-    <button onclick="toggleProjectPanel()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px">✕</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <span style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:1px;font-family:'Share Tech Mono',monospace">📁 MY PROJECTS</span>
+    <button onclick="toggleProjectPanel()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:18px;line-height:1">✕</button>
   </div>
+  <button onclick="newProject()" style="width:100%;background:transparent;border:1px dashed var(--border);
+    color:var(--accent2);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11px;
+    padding:6px;border-radius:3px;cursor:pointer;margin-bottom:10px;letter-spacing:1px">
+    ＋ New Empty Project
+  </button>
   <div id="drawings-list" style="font-size:10px"></div>
 </div>
 
@@ -403,16 +409,24 @@ async function _fetchProjects(){
       const dd=d.data();
       const date=new Date(dd.savedAt||0).toLocaleDateString('th-TH');
       const sheets=dd.sheets||[];
-      return `<div class="drawing-card" onclick="loadProject('${d.id}')">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="color:var(--text);font-weight:700;font-size:11px">${dd.name}</span>
-          <span style="color:var(--accent);font-size:9px">${dd.sheetCount||1} sheets →</span>
+      const preview=sheets.slice(0,3).map((sh,i)=>
+        `<div style="color:#555;font-size:8px">Sheet ${sh.sheetNum}: Z-${sh.inputs?.pH}×${sh.inputs?.pB1} / L=${sh.inputs?.pL} mm</div>`
+      ).join('');
+      return `<div class="drawing-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+          <div>
+            <div style="color:var(--text);font-weight:700;font-size:12px">${dd.name}</div>
+            <div style="color:var(--dim);font-size:9px;margin-top:1px">${sheets.length} sheets · ${date}</div>
+          </div>
+          <button onclick="loadProject('${d.id}')"
+            style="background:var(--accent);color:#000;border:none;padding:4px 10px;
+            border-radius:3px;font-size:10px;font-weight:700;cursor:pointer;
+            font-family:'Rajdhani',sans-serif;letter-spacing:.8px;white-space:nowrap">
+            LOAD
+          </button>
         </div>
-        <div style="color:var(--dim);margin-top:3px;font-size:9px;line-height:1.6">
-          ${sheets.slice(0,2).map(s=>`Sheet ${s.sheetNum}: Z-${s.inputs?.pH}×${s.inputs?.pB1} / L=${s.inputs?.pL}`).join('<br>')}
-          ${sheets.length>2?`<span style="color:#555">+${sheets.length-2} more...</span>`:''}
-          <br>${date}
-        </div>
+        ${preview}
+        ${sheets.length>3?`<div style="color:#444;font-size:8px">+${sheets.length-3} more sheets</div>`:''}
       </div>`;
     }).join('');
   }catch(e){
@@ -420,12 +434,24 @@ async function _fetchProjects(){
   }
 }
 
+window.newProject=function(){
+  // Reset to blank single sheet
+  _pages=[{label:'P1',inputs:{...PAGE_DEFAULTS},holes:[],svg:''}];
+  _curPage=0; _pgCtr=1;
+  _applyState(_pages[0]);
+  _g0=false; _renderTabs();
+  toggleProjectPanel();
+  // default holes
+  addHole(1,'WEB',35,'H1');
+  addHole(1,'WEB',35,'H2');
+};
+
 window.loadProject=function(docId){
   const dd=_myDocs[docId]; if(!dd) return;
   const sheets=dd.sheets||[];
   if(!sheets.length) return;
+  if(!confirm(`โหลด Project "${dd.name}" (${sheets.length} sheets)?\nข้อมูลปัจจุบันจะถูกแทนที่`)) return;
 
-  // สร้าง _pages จาก sheets ที่บันทึกไว้
   _pages=sheets.map((sh,i)=>({
     label:sh.label||`P${i+1}`,
     inputs:sh.inputs||{},
@@ -434,11 +460,9 @@ window.loadProject=function(docId){
   }));
   _curPage=0; _pgCtr=_pages.length;
   _applyState(_pages[0]);
-  _g0=false;
-  _renderTabs();
+  _g0=false; _renderTabs();
   toggleProjectPanel();
-  // Generate sheet แรกอัตโนมัติ
-  setTimeout(()=>{ generate(); },100);
+  setTimeout(()=>generate(),150);
 };
 
 /* ── PRESETS ── */
@@ -942,108 +966,120 @@ function zProfile(ox,oy,H,B1,B2,D,sc,stroke=1.8){
 function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
   let s='';
   const sH=H*sc, sB1=B1*sc, sB2=B2*sc, sD=D*sc;
+  const t_px=Math.max(2.5*sc,3);  // web thickness visual (ใช้ขนาดจริง)
+
+  // ── Profile ──
   s+=zProfile(sec_cx,sec_cy,H,B1,B2,D,sc,1.6);
 
-  // Depth dim (ด้านขวา)
-  const depthX=sec_cx+sB2+28;
-  s+=DV(depthX, sec_cy-sH, sec_cy, fmt(H), CDIM, sec_cx+sB2, 7.5);
-  s+=ST(depthX+12,sec_cy-sH/2,'Depth',6.5,'start','#555','normal',`rotate(-90,${r(depthX+12)},${r(sec_cy-sH/2)})`);
+  // ── Z-Z centerline (แนวตั้ง) ──
+  const zzTop=sec_cy-sH-sD-20, zzBot=sec_cy+20;
+  s+=SL(sec_cx,zzTop,sec_cx,zzBot,'#444',.5,'10,4,2,4');
+  s+=ST(sec_cx,zzTop-8,'Z',8,'middle','#333','bold');
+  s+=ST(sec_cx,zzBot+10,'Z',8,'middle','#333','bold');
 
-  // Top Flange dim
-  s+=DH(sec_cx-sB1, sec_cx, sec_cy-sH-20, fmt(B1), CDIM, sec_cy-sH);
-  s+=ST((sec_cx-sB1+sec_cx)/2,sec_cy-sH-30,'Flange',6.5,'middle','#555');
+  // ── Y-Y centerline (แนวนอน กึ่งกลาง web) ──
+  const yyY=sec_cy-sH/2;
+  const yyL=sec_cx-sB1-50, yyR=sec_cx+sB2+70;
+  s+=SL(yyL,yyY,yyR,yyY,'#444',.5,'10,4,2,4');
+  s+=ST(yyL-8,yyY,'Y',8,'middle','#333','bold');
+  s+=ST(yyR+8,yyY,'Y',8,'middle','#333','bold');
+  s+=ST(yyR+18,yyY+8,'Depth',6,'start','#666');
 
-  // Bottom Flange dim
-  s+=DH(sec_cx, sec_cx+sB2, sec_cy+20, fmt(B2), CDIM, sec_cy);
-  s+=ST((sec_cx+sec_cx+sB2)/2,sec_cy+31,'Bottom Flange',6.5,'middle','#555');
+  // ── Dims ──
+  // Top Flange (B1) — เหนือ top flange
+  s+=DH(sec_cx-sB1,sec_cx,sec_cy-sH-22,fmt(B1),CDIM,sec_cy-sH);
+  s+=ST(sec_cx-sB1/2,sec_cy-sH-32,'Top flange',6,'middle','#555');
 
-  // Top Lip dim
-  const tlX=sec_cx-sB1-16;
-  s+=DV(tlX, sec_cy-sH, sec_cy-sH+sD, fmt(D), CDIM, sec_cx-sB1, 7);
-  s+=ST(tlX-13,sec_cy-sH+sD/2,'Top Lip',6,'end','#555');
+  // Lt (Top Lip) — ขวาสุด
+  const ltX=sec_cx+8;
+  s+=DV(ltX,sec_cy-sH,sec_cy-sH+sD,`Lt=${fmt(D)}`,CDIM,null,6.5);
 
-  // Bottom Lip dim
-  const blX=sec_cx+sB2+14;
-  s+=DV(blX, sec_cy-sD, sec_cy, fmt(D), CDIM, sec_cx+sB2, 7);
-  s+=ST(blX+13,sec_cy-sD/2,'Bottom Lip',6,'start','#555');
+  // Bottom Flange (B2) — ใต้ bottom flange
+  s+=DH(sec_cx,sec_cx+sB2,sec_cy+20,fmt(B2),CDIM,sec_cy);
+  s+=ST(sec_cx+sB2/2,sec_cy+31,'Bottom Flange',6,'middle','#555');
 
-  // WEB HOLES
+  // Lb (Bottom Lip) — ซ้าย B2
+  const lbX=sec_cx-sB2*0.9-16;
+  s+=DV(lbX,sec_cy-sD,sec_cy,`Lb=${fmt(D)}`,CDIM,null,6.5);
+
+  // Depth (H) — ขวา
+  const depthX=sec_cx+sB2+38;
+  s+=DV(depthX,sec_cy-sH,sec_cy,fmt(H),CDIM,sec_cx+sB2,7.5);
+
+  // t (thickness) — เล็กๆ บน web
+  s+=ST(sec_cx+4,sec_cy-sH/2-4,'t',6,'start','#555','bold');
+
+  // ── WEB HOLES — แสดงเป็นสี่เหลี่ยมเล็กบนความหนาของ web ──
+  // slot rectangle: กว้าง = WH, สูง = DH วางทับบนผิว web
   const webH=holes.filter(h=>!h.face||h.face==='WEB');
   const uniqueY=[...new Set(webH.map(h=>h.Y))].sort((a,b)=>a-b);
 
-  // Gauge dim (H1 pair C-to-C)
-  const h1s=webH.filter(h=>h.holeType==='H1');
-  if(h1s.length>=2){
-    const ys=h1s.map(h=>sec_cy-h.Y*sc).sort((a,b)=>a-b);
-    const glX=sec_cx+sB2+52;
-    s+=DV(glX,ys[0],ys[1],`GL=${fmt(getTMTRow(H).GL)}`,CDIM,null,7);
-    s+=ST(glX+12,(ys[0]+ys[1])/2,'Gauge',6.5,'start','#555','normal',`rotate(-90,${r(glX+12)},${r((ys[0]+ys[1])/2)})`);
-  }
+  // E = ระยะจาก top flange ถึง top hole, F = จาก bottom hole ถึง bottom flange
+  const topHoles=webH.filter(h=>h.Y>H/2).sort((a,b)=>b.Y-a.Y);
+  const botHoles=webH.filter(h=>h.Y<=H/2).sort((a,b)=>a.Y-b.Y);
 
   uniqueY.forEach((hy,i)=>{
     const hole=webH.find(h=>h.Y===hy);
-    const dia=hole?hole.dia:SLOT_DH;
     const screenY=sec_cy-hy*sc;
     const isTop=hy>H/2;
-    const hr=Math.max(dia/2*sc,3.5);
 
-    if(hole&&hole.slot){
-      const sw=Math.max((hole.slotW||SLOT_WH)/2*sc,5);
-      const sh=Math.max(SLOT_DH/2*sc,3.5);
-      s+=`<ellipse cx="${r(sec_cx)}" cy="${r(screenY)}" rx="${r(sw,2)}" ry="${r(sh,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
+    // สี่เหลี่ยมรู บนผิว web (ด้านซ้าย = ด้าน B1)
+    const rW=Math.max((hole?.slotW||SLOT_WH)*sc*0.5, 8); // ความกว้าง slot
+    const rH=Math.max(SLOT_DH*sc*0.4, 4);                 // ความสูง slot
+    // วางบน web face (ซ้ายของ sec_cx)
+    s+=`<rect x="${r(sec_cx-t_px)}" y="${r(screenY-rH/2)}" width="${r(t_px)}" height="${r(rH)}" fill="${COUT}" stroke="none" rx="1"/>`;
+    // สี่เหลี่ยมฝั่งขวา web ด้วย (เจาะทะลุ)
+    s+=`<rect x="${r(sec_cx)}" y="${r(screenY-rH/2)}" width="${r(t_px)}" height="${r(rH)}" fill="white" stroke="${COUT}" stroke-width="0.5" rx="1"/>`;
+
+    // dim E (top hole) หรือ F (bottom hole)
+    const dimLabel=isTop?'E':'F';
+    const dimX=sec_cx-sB1-22-i*18;
+    if(isTop){
+      s+=DV(dimX,sec_cy-sH,screenY,`${dimLabel}=${fmt(H-hy)}`,CDIM,sec_cx-sB1,6.5);
     } else {
-      s+=SC(sec_cx,screenY,hr,COUT,.8,'white');
+      s+=DV(dimX,screenY,sec_cy,`${dimLabel}=${fmt(hy)}`,CDIM,sec_cx-sB1,6.5);
     }
-    const CM=4;
-    s+=SL(sec_cx-CM,screenY,sec_cx+CM,screenY,'#555',.4,'3,2');
-    s+=SL(sec_cx,screenY-CM,sec_cx,screenY+CM,'#555',.4,'3,2');
 
-    // Leader (เอียงออกขวา ขึ้นถ้า top hole, ลงถ้า bottom hole)
-    const ang=isTop?-Math.PI/5:Math.PI/5;
-    const leadLen=28;
-    const ex=sec_cx+Math.cos(ang)*leadLen, ey=screenY+Math.sin(ang)*leadLen;
-    const noteLbl=hole&&hole.slot?`${SLOT_DH}\u00d7${SLOT_WH} Slot.`:`\u00d8${fmt(dia)} Hole.`;
-    const holeName=isTop?'Top Hole':'Bottom Hole';
-    s+=SL(sec_cx,screenY,ex,ey,CDIM,.5);
-    s+=SL(ex,ey,ex+28,ey,CDIM,.5);
-    s+=ARR(sec_cx,screenY,Math.cos(ang),Math.sin(ang),CDIM);
-    s+=ST(ex+30,ey-2,noteLbl,7,'start',CDIM,'bold');
-    s+=ST(ex+30,ey+8,holeName,6,'start','#777');
-
-    // Y dim ด้านซ้าย
-    const webEdge=sec_cx-sB1;
-    const dimX=webEdge-20-i*20;
-    if(isTop) s+=DV(dimX,sec_cy-sH,screenY,fmt(H-hy),CDIM,webEdge,7);
-    else       s+=DV(dimX,screenY,sec_cy,fmt(hy),CDIM,webEdge,7);
+    // Leader note (ออกทางขวา)
+    const ang=isTop?-0.6:0.6;
+    const ldX=sec_cx+Math.cos(ang)*24, ldY=screenY+Math.sin(ang)*24;
+    const noteLbl=hole?.slot?`${SLOT_DH}×${SLOT_WH} Slot`:`Ø${fmt(hole?.dia||18)}`;
+    s+=SL(sec_cx,screenY,ldX,ldY,CDIM,.45);
+    s+=SL(ldX,ldY,ldX+30,ldY,CDIM,.45);
+    s+=ST(ldX+32,ldY+3,noteLbl,6.5,'start',CDIM);
   });
 
-  // TOP flange holes
+  // Gauge dim (C-to-C H1 pair)
+  const h1s=webH.filter(h=>h.holeType==='H1');
+  if(h1s.length>=2){
+    const ys=h1s.map(h=>sec_cy-h.Y*sc).sort((a,b)=>a-b);
+    const glX=sec_cx+sB2+58;
+    s+=DV(glX,ys[0],ys[1],`GL=${fmt(getTMTRow(H).GL)}`,CDIM,null,6.5);
+    s+=ST(glX+10,(ys[0]+ys[1])/2,'Gauge',6,'start','#555','normal',
+      `rotate(-90,${r(glX+10)},${r((ys[0]+ys[1])/2)})`);
+  }
+
+  // ── FLANGE HOLES (TOP/BOT) ── เป็น rect บน flange
   holes.filter(h=>h.face==='TOP').forEach(hole=>{
     const hx=sec_cx-sB1/2, hy=sec_cy-sH;
-    const sw=Math.max(SLOT_WH/2*sc,5), sh=Math.max(SLOT_DH/2*sc,3.5);
-    s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(sw,2)}" ry="${r(sh,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
-    s+=SL(hx-4,hy,hx+4,hy,'#555',.4,'3,2'); s+=SL(hx,hy-4,hx,hy+4,'#555',.4,'3,2');
-    const ky=hy-28;
-    s+=SL(hx,hy-sh,hx,ky,CDIM,.45); s+=SL(hx,ky,hx-28,ky,CDIM,.45);
-    s+=ARR(hx,hy-sh,0,-1,CDIM);
-    s+=ST(hx-30,ky+3,`${SLOT_DH}\u00d7${SLOT_WH} Slot.`,7,'end',CDIM,'bold');
+    const fw=Math.max(SLOT_WH*sc*0.5,8), fh=Math.max(SLOT_DH*sc*0.4,4);
+    s+=`<rect x="${r(hx-fw/2)}" y="${r(hy-t_px)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
+    s+=SL(hx,hy-t_px-4,hx,hy-t_px-20,CDIM,.45);
+    s+=SL(hx,hy-t_px-20,hx-28,hy-t_px-20,CDIM,.45);
+    s+=ST(hx-30,hy-t_px-17,`${SLOT_DH}×${SLOT_WH} Slot`,6.5,'end',CDIM);
   });
-
-  // BOT flange holes
   holes.filter(h=>h.face==='BOT').forEach(hole=>{
     const hx=sec_cx+sB2/2, hy=sec_cy;
-    const sw=Math.max(SLOT_WH/2*sc,5), sh=Math.max(SLOT_DH/2*sc,3.5);
-    s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(sw,2)}" ry="${r(sh,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
-    s+=SL(hx-4,hy,hx+4,hy,'#555',.4,'3,2'); s+=SL(hx,hy-4,hx,hy+4,'#555',.4,'3,2');
-    const ky=hy+28;
-    s+=SL(hx,hy+sh,hx,ky,CDIM,.45); s+=SL(hx,ky,hx+28,ky,CDIM,.45);
-    s+=ARR(hx,hy+sh,0,1,CDIM);
-    s+=ST(hx+30,ky+3,`${SLOT_DH}\u00d7${SLOT_WH} Slot.`,7,'start',CDIM,'bold');
+    const fw=Math.max(SLOT_WH*sc*0.5,8), fh=Math.max(SLOT_DH*sc*0.4,4);
+    s+=`<rect x="${r(hx-fw/2)}" y="${r(hy)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
+    s+=SL(hx,hy+t_px+4,hx,hy+t_px+20,CDIM,.45);
+    s+=SL(hx,hy+t_px+20,hx+28,hy+t_px+20,CDIM,.45);
+    s+=ST(hx+30,hy+t_px+17,`${SLOT_DH}×${SLOT_WH} Slot`,6.5,'start',CDIM);
   });
 
   // H dim ด้านซ้ายสุด
-  const hDX=sec_cx-sB1-(uniqueY.length+1)*22;
-  s+=DV(hDX,sec_cy-sH,sec_cy,`H=${fmt(H)}`,CDIM,sec_cx-sB1,7.5);
+  const hDX=sec_cx-sB1-(uniqueY.length+1)*20-12;
+  s+=DV(hDX,sec_cy-sH,sec_cy,`H=${fmt(H)}`,CDIM,sec_cx-sB1,7);
 
   // Label
   const lx=sec_cx+(sB2-sB1)/2;
