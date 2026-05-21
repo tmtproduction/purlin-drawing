@@ -47,7 +47,7 @@ window.$fn   = { signInWithPopup, signOut, onAuthStateChanged,
   --bg:#0d1117;--panel:#161b22;--border:#21262d;--accent:#58a6ff;
   --accent2:#3fb950;--warn:#f85149;--text:#e6edf3;--dim:#8b949e;--inp:#0d1117;
 }
-body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);display:flex;height: calc(100vh - 38px);overflow:hidden;margin-top:38px}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:calc(100vh - 38px);overflow:hidden;margin-top:38px}
 #auth-bar{position:fixed;top:0;left:0;right:0;height:38px;z-index:9999;
   background:#060a0f;border-bottom:1px solid var(--border);
   display:flex;align-items:center;padding:0 14px;gap:8px;
@@ -105,6 +105,32 @@ select option{background:var(--panel)}
 .bg{background:transparent;border:1px solid var(--border);color:var(--dim)}.bg:hover{border-color:var(--accent);color:var(--accent)}
 .badd{background:transparent;border:1px dashed var(--border);color:var(--dim);width:100%;margin-top:4px;padding:4px;font-size:10px;border-radius:2px;cursor:pointer;font-family:'Share Tech Mono',monospace;transition:all .15s}
 .badd:hover{border-color:var(--accent2);color:var(--accent2)}
+#main{flex:1;display:flex;overflow:hidden;min-height:0}
+/* ── PAGE BAR ── */
+#page-bar{height:32px;flex-shrink:0;background:#060a0f;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 6px;gap:3px;overflow-x:auto;scrollbar-width:none}
+#page-bar::-webkit-scrollbar{display:none}
+.pg-tab{height:24px;padding:0 10px;border:1px solid var(--border);border-bottom:none;
+  border-radius:3px 3px 0 0;background:transparent;color:var(--dim);
+  font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;
+  display:flex;align-items:center;gap:4px;white-space:nowrap;transition:all .15s;
+  position:relative;bottom:-1px}
+.pg-tab.active{background:var(--panel);color:var(--accent);border-color:var(--border)}
+.pg-tab:not(.active):hover{color:var(--accent);border-color:rgba(88,166,255,.4)}
+.pg-del{background:none;border:none;color:#444;cursor:pointer;font-size:10px;
+  line-height:1;padding:0;margin-left:2px}
+.pg-del:hover{color:var(--warn)}
+.pg-add{height:24px;padding:0 8px;background:transparent;border:1px dashed var(--border);
+  border-radius:3px;color:var(--dim);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;transition:all .15s}
+.pg-add:hover{border-color:var(--accent2);color:var(--accent2)}
+#page-bar .spacer{flex:1}
+#page-bar .pg-print{padding:3px 10px;background:transparent;border:1px solid var(--border);
+  border-radius:3px;color:var(--dim);font-family:'Rajdhani';font-weight:700;
+  font-size:9px;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;transition:all .15s}
+#page-bar .pg-print:hover{border-color:var(--accent);color:var(--accent)}
+/* ── PRINT ALL ── */
+#print-all{display:none}
 #right{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .toolbar{padding:7px 13px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:10px}
 .toolbar h2{font-size:9.5px;font-weight:600;color:var(--dim);letter-spacing:2.5px;text-transform:uppercase;flex:1}
@@ -113,22 +139,13 @@ select option{background:var(--panel)}
 #svg-out{background:#fff;box-shadow:0 8px 56px rgba(0,0,0,.75);display:block}
 @media print{
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-  body{background:#fff!important;display:block!important;height:auto!important;
-       overflow:visible!important;margin:0!important;padding:0!important}
-
-  /* ← เพิ่ม: ซ่อน auth bar + load panel → หน้า 2 หายไป */
-  #auth-bar, #load-panel{display:none!important}
-
-  #panel, .toolbar{display:none!important}
-  #right{display:block!important;overflow:visible!important;
-         height:auto!important;width:100%!important}
-  .scroll{display:block!important;padding:0!important;overflow:visible!important;
-          background:#fff!important;width:100%!important;height:auto!important}
-  #svg-out{display:block!important;box-shadow:none!important;
-           width:100%!important;height:auto!important;max-width:100%!important;
-           overflow:hidden!important} /* ← ตัด ribbon ที่เกินกรอบ */
-
-  /* ← เปลี่ยน A3 → A4 landscape */
+  body{background:#fff!important;display:block!important;height:auto!important;overflow:visible!important;margin:0!important;padding:0!important}
+  #auth-bar,#load-panel,#page-bar{display:none!important}
+  #panel,.toolbar,#right{display:none!important}
+  #print-all{display:block!important}
+  .print-page{page-break-after:always;page-break-inside:avoid}
+  .print-page:last-child{page-break-after:avoid}
+  .print-page svg{width:100%!important;height:auto!important;display:block!important}
   @page{margin:4mm;size:A4 landscape}
 }
 </style>
@@ -156,6 +173,15 @@ select option{background:var(--panel)}
   <div id="drawings-list" style="font-size:10px"></div>
 </div>
 
+<!-- ═══ PAGE BAR ═══ -->
+<div id="page-bar">
+  <div id="page-tabs-inner" style="display:flex;gap:3px;align-items:flex-end;height:100%"></div>
+  <button class="pg-add" onclick="addPage()" title="เพิ่ม Page ใหม่">＋</button>
+  <span class="spacer"></span>
+  <button class="pg-print" onclick="printAll()">🖨 Print All</button>
+</div>
+
+<div id="main">
 <div id="panel">
   <div class="ph">
     <h1>Z Purlin Drawing</h1>
@@ -221,7 +247,7 @@ select option{background:var(--panel)}
   </div>
   <div class="pf">
     <button class="btn bp" onclick="generate()" style="flex:1">▶ สร้าง Drawing</button>
-    <button class="btn bg" onclick="window.print()" title="Print">🖨</button>
+    <button class="btn bg" onclick="printAll()" title="Print / PDF">🖨</button>
   </div>
 </div>
 
@@ -229,15 +255,18 @@ select option{background:var(--panel)}
   <div class="toolbar">
     <h2>Drawing Preview</h2>
     <span id="slbl">—</span>
-    <button class="btn bg" onclick="window.print()" style="font-size:9px;padding:4px 11px">Print / PDF</button>
+    <button class="btn bg" onclick="printAll()" style="font-size:9px;padding:4px 11px">Print / PDF</button>
   </div>
   <div class="scroll">
-    <svg id="svg-out" width="1190" height="841" xmlns="http://www.w3.org/2000/svg">
+    <svg id="svg-out" width="1190" height="841" viewBox="0 0 1190 841" overflow="hidden" xmlns="http://www.w3.org/2000/svg">
       <rect width="1190" height="841" fill="#fff"/>
       <text x="595" y="420" text-anchor="middle" font-size="13" fill="#bbb" font-family="Share Tech Mono,monospace">กรอกข้อมูลและกด ▶ สร้าง Drawing</text>
     </svg>
   </div>
-</div>
+</div><!-- /#main -->
+
+<!-- ═══ PRINT ALL CONTAINER ═══ -->
+<div id="print-all"></div>
 
 <script>
 'use strict';
@@ -357,7 +386,7 @@ window.saveDrawing = async function(){
 /* ─── LOAD PANEL ─── */
 window.toggleLoadPanel = function(){
   _loadOpen = !_loadOpen;
-  document.getElementById('load-panel').style.display = _loadOpen ? 'block' : 'none';
+  document.getElementById('load-panel').style.display = _loadOpen ? '' : 'none';
   if(_loadOpen) _fetchMyDrawings();
 };
 
@@ -366,23 +395,18 @@ async function _fetchMyDrawings(){
   const list = document.getElementById('drawings-list');
   list.innerHTML = '<div style="color:var(--dim)">กำลังโหลด...</div>';
   try{
-    const {collection, query, where, getDocs} = window.$fn;
-    // ← เอา orderBy ออก (ต้องการ composite index)
-    const q = query(collection(window.$db,'drawings'), where('uid','==',_fbUser.uid));
+    const {collection,query,where,orderBy,getDocs} = window.$fn;
+    const q = query(collection(window.$db,'drawings'),
+      where('uid','==',_fbUser.uid), orderBy('savedAt','desc'));
     const snap = await getDocs(q);
     _myDocs = {};
-    if(snap.empty){
-      list.innerHTML='<div style="color:var(--dim)">ยังไม่มี drawings ที่บันทึกไว้</div>';
-      return;
-    }
-    // ← sort ใน JS แทน
-    const sortedDocs = snap.docs.sort((a,b) => b.data().savedAt - a.data().savedAt);
-    list.innerHTML = sortedDocs.map(d=>{
+    if(snap.empty){ list.innerHTML='<div style="color:var(--dim)">ยังไม่มี drawings ที่บันทึกไว้</div>'; return; }
+    list.innerHTML = snap.docs.map(d=>{
       _myDocs[d.id]=d.data();
       const dd=d.data(), date=new Date(dd.savedAt).toLocaleDateString('th-TH');
       return `<div class="drawing-card" onclick="loadDrawing('${d.id}')">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="color:var(--text);font-weight:700;font-size:11px">${dd.name||'(ไม่มีชื่อ)'}</span>
+          <span style="color:var(--text);font-weight:700;font-size:11px">${dd.name}</span>
           <span style="color:var(--accent);font-size:9px">LOAD →</span>
         </div>
         <div style="color:var(--dim);margin-top:3px;font-size:9px;line-height:1.6">
@@ -780,6 +804,8 @@ function ribbonCallout(x1,x2,y,text,above=true){
   const cw=5.6, bh=13, pad=8;
   const bw=Math.max(text.length*cw+pad*2,62);
   const sign=above?-1:1;
+  // clamp pill X ไม่ให้เกินกรอบ SVG
+  const pillX=Math.max(bw/2+4, Math.min(SW-bw/2-4, mid));
 
   // Find arm length that avoids collision
   let ARM=20;
@@ -796,12 +822,12 @@ function ribbonCallout(x1,x2,y,text,above=true){
   s+=SL(x1,y,x1,barY,COUT,.55);
   s+=SL(x2,y,x2,barY,COUT,.55);
   s+=SL(x1,barY,x2,barY,COUT,.6);
-  s+=SL(mid,barY,mid,pillY+(above?bh/2:-bh/2),COUT,.45);
-  s+=`<rect x="${r(mid-bw/2)}" y="${r(pillY-bh/2)}" width="${r(bw)}" height="${bh}" rx="${bh/2}" fill="white" stroke="${COUT}" stroke-width="0.7"/>`;
-  s+=ST(mid,pillY+4,text,7,'middle',COUT);
+  s+=SL(mid,barY,pillX,pillY+(above?bh/2:-bh/2),COUT,.45);
+  s+=`<rect x="${r(pillX-bw/2)}" y="${r(pillY-bh/2)}" width="${r(bw)}" height="${bh}" rx="${bh/2}" fill="white" stroke="${COUT}" stroke-width="0.7"/>`;
+  s+=ST(pillX,pillY+4,text,7,'middle',COUT);
 
   // Register pill box
-  blockBox(mid,pillY,bw,bh);
+  blockBox(pillX,pillY,bw,bh);
   return s;
 }
 
@@ -851,10 +877,13 @@ function placeCalloutSingle(hx,hy,lbl,preferAbove=true){
   const cw=5.6,bh=14,pad=8;
   const bw=Math.max(lbl.length*cw+pad*2,55);
   const M=3;
+  // clamp X ให้ pill อยู่ในกรอบ SVG เสมอ
+  const clampX=ox=>Math.max(bw/2+M, Math.min(SW-bw/2-M, ox));
   function tryAt(ox,oy){
-    if(!hitsBox(ox,oy,bw,bh,M)){
-      blockBox(ox,oy,bw,bh);
-      return pillCallout(ox,oy,lbl,hx,hy);
+    const cx=clampX(ox);
+    if(!hitsBox(cx,oy,bw,bh,M)){
+      blockBox(cx,oy,bw,bh);
+      return pillCallout(cx,oy,lbl,hx,hy);
     }
     return null;
   }
@@ -864,9 +893,9 @@ function placeCalloutSingle(hx,hy,lbl,preferAbove=true){
     :[hy+BASE,hy-BASE,hy+BASE+STEP,hy-BASE-STEP,hy+BASE+STEP*2,hy+BASE+STEP*3];
   const oxs=[hx,hx+bw*0.5,hx-bw*0.5,hx+bw,hx-bw];
   for(const coy of oys)for(const cox of oxs){const res=tryAt(cox,coy);if(res)return res;}
-  const cox=oxs[0],coy=oys[oys.length-1];
-  blockBox(cox,coy,bw,bh);
-  return pillCallout(cox,coy,lbl,hx,hy);
+  const cx=clampX(oxs[0]),coy=oys[oys.length-1];
+  blockBox(cx,coy,bw,bh);
+  return pillCallout(cx,coy,lbl,hx,hy);
 }
 
 /* Legacy wrapper */
@@ -1652,7 +1681,111 @@ function generate(){
   s+=drawTitleBlock(tb,purlinLabel,TB_Y);
 
   document.getElementById('svg-out').innerHTML=s;
+  // บันทึก SVG ลง page ปัจจุบัน + อัปเดต tab indicator
+  if(_pages[_curPage]){ _pages[_curPage].svg=s; _renderTabs(); }
 }
+
+/* ════════════════════════════════════════════
+   PAGE SYSTEM — multi-page drawing manager
+════════════════════════════════════════════ */
+let _pages = [];
+let _curPage = 0;
+let _pgCtr = 1;
+
+const PAGE_DEFAULTS = {pL:6000,pH:152,pt:2.3,pB1:65,pB2:65,pD:20,
+  tbProj:'TMT Steel PCL',tbNo:'Z-HDG-001',tbRev:'A',tbBy:'',tbQty:'1',tbDate:'',tbNote:'ทุกขนาดหน่วย mm.'};
+
+function _captureState(){
+  const ids=['pL','pH','pt','pB1','pB2','pD','tbProj','tbNo','tbRev','tbBy','tbQty','tbDate','tbNote'];
+  const inputs={};
+  ids.forEach(id=>{const el=document.getElementById(id); if(el) inputs[id]=el.value;});
+  const holes=Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>{
+    const inp=tr.querySelectorAll('input,select');
+    return{qty:inp[0].value,face:inp[1].value,X:inp[2].value,holeType:inp[3].value};
+  });
+  const svg=document.getElementById('svg-out').innerHTML;
+  return{inputs,holes,svg};
+}
+
+function _applyState(st){
+  if(!st) return;
+  const ids=['pL','pH','pt','pB1','pB2','pD','tbProj','tbNo','tbRev','tbBy','tbQty','tbDate','tbNote'];
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&st.inputs&&st.inputs[id]!==undefined) el.value=st.inputs[id];
+  });
+  document.getElementById('htbody').innerHTML=''; _hcnt=0;
+  (st.holes||[]).forEach(h=>addHole(+h.qty||1,h.face||'WEB',h.X||'',h.holeType||'H1'));
+  if(st.svg) document.getElementById('svg-out').innerHTML=st.svg;
+}
+
+function _renderTabs(){
+  const inner=document.getElementById('page-tabs-inner');
+  inner.innerHTML=_pages.map((pg,i)=>`
+    <button class="pg-tab${i===_curPage?' active':''}" onclick="switchPage(${i})">
+      ${pg.label}${pg.svg?'  ✓':''}
+      ${_pages.length>1?`<span class="pg-del" onclick="event.stopPropagation();deletePage(${i})">✕</span>`:''}
+    </button>`).join('');
+}
+
+function _pgLabel(){ return `P${_pgCtr}`; }
+
+window.addPage=function(){
+  // save current page
+  _pages[_curPage]={..._pages[_curPage],..._captureState()};
+  // new blank page
+  _pgCtr++;
+  const inputs={...PAGE_DEFAULTS, tbNo:'Z-HDG-00'+_pgCtr};
+  _pages.push({label:_pgLabel(),inputs,holes:[
+    {qty:'1',face:'WEB',X:'35',holeType:'H1'},
+    {qty:'1',face:'WEB',X:'35',holeType:'H2'},
+    {qty:'1',face:'WEB',X:'5965',holeType:'H1'},
+    {qty:'1',face:'WEB',X:'5965',holeType:'H2'},
+  ],svg:''});
+  _curPage=_pages.length-1;
+  _applyState(_pages[_curPage]);
+  _g0=false;
+  _renderTabs();
+};
+
+window.switchPage=function(idx){
+  if(idx===_curPage) return;
+  _pages[_curPage]={..._pages[_curPage],..._captureState()};
+  _curPage=idx;
+  _applyState(_pages[_curPage]);
+  _g0=!!_pages[_curPage]?.svg;
+  _renderTabs();
+};
+
+window.deletePage=function(idx){
+  if(_pages.length<=1) return;
+  if(!confirm(`ลบ ${_pages[idx].label} ?`)) return;
+  _pages.splice(idx,1);
+  _curPage=Math.min(_curPage,_pages.length-1);
+  _applyState(_pages[_curPage]);
+  _g0=!!_pages[_curPage]?.svg;
+  _renderTabs();
+};
+
+window.printAll=function(){
+  // save & generate current page
+  _pages[_curPage]={..._pages[_curPage],..._captureState()};
+  generate();
+  _pages[_curPage].svg=document.getElementById('svg-out').innerHTML;
+
+  const hasSvg=_pages.filter(pg=>pg.svg);
+  if(!hasSvg.length){alert('กรุณากด ▶ สร้าง Drawing ก่อน'); return;}
+
+  const container=document.getElementById('print-all');
+  container.innerHTML=_pages
+    .filter(pg=>pg.svg)
+    .map(pg=>`<div class="print-page">
+      <svg width="1190" height="841" viewBox="0 0 1190 841" overflow="hidden" xmlns="http://www.w3.org/2000/svg">
+        ${pg.svg}
+      </svg>
+    </div>`).join('');
+  setTimeout(()=>window.print(), 80);
+};
 
 /* ── Auto-generate (debounced, after first press) ── */
 let _deb=null,_g0=false;
@@ -1664,6 +1797,10 @@ const _G=generate;
 window.generate=function(){_g0=true;_G();};
 
 /* ── Init ── */
+// สร้าง Page 1 เริ่มต้น
+_pages=[{label:'P1',inputs:{...PAGE_DEFAULTS},holes:[],svg:''}];
+_curPage=0; _pgCtr=1;
+_renderTabs();
 addHole(1,'WEB',35,'H1');
 addHole(1,'WEB',35,'H2');
 addHole(1,'WEB',5965,'H1');
