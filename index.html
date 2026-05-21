@@ -346,7 +346,7 @@ window.saveDrawing = async function(){
 /* ─── LOAD PANEL ─── */
 window.toggleLoadPanel = function(){
   _loadOpen = !_loadOpen;
-  document.getElementById('load-panel').style.display = _loadOpen ? '' : 'none';
+  document.getElementById('load-panel').style.display = _loadOpen ? 'block' : 'none';
   if(_loadOpen) _fetchMyDrawings();
 };
 
@@ -355,24 +355,25 @@ async function _fetchMyDrawings(){
   const list = document.getElementById('drawings-list');
   list.innerHTML = '<div style="color:var(--dim)">กำลังโหลด...</div>';
   try{
-    const {collection,query,where,orderBy,getDocs} = window.$fn;
-    const q = query(collection(window.$db,'drawings'),
-      where('uid','==',_fbUser.uid), orderBy('savedAt','desc'));
+    const {collection, query, where, getDocs} = window.$fn;
+    const q = query(
+      collection(window.$db,'drawings'),
+      where('uid','==',_fbUser.uid)   // ← เอา orderBy ออก
+    );
     const snap = await getDocs(q);
+    // Sort ใน JS แทน
+    const sortedDocs = snap.docs.sort((a,b) => b.data().savedAt - a.data().savedAt);
+
     _myDocs = {};
-    if(snap.empty){ list.innerHTML='<div style="color:var(--dim)">ยังไม่มี drawings ที่บันทึกไว้</div>'; return; }
-    list.innerHTML = snap.docs.map(d=>{
+    if(snap.empty){
+      list.innerHTML='<div style="color:var(--dim)">ยังไม่มี drawings ที่บันทึกไว้</div>';
+      return;
+    }
+    list.innerHTML = sortedDocs.map(d=>{   // ← เปลี่ยน snap.docs → sortedDocs
       _myDocs[d.id]=d.data();
       const dd=d.data(), date=new Date(dd.savedAt).toLocaleDateString('th-TH');
       return `<div class="drawing-card" onclick="loadDrawing('${d.id}')">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="color:var(--text);font-weight:700;font-size:11px">${dd.name}</span>
-          <span style="color:var(--accent);font-size:9px">LOAD →</span>
-        </div>
-        <div style="color:var(--dim);margin-top:3px;font-size:9px;line-height:1.6">
-          Z-${dd.inputs.pH}×${dd.inputs.pB1}×${dd.inputs.pB2} / L=${dd.inputs.pL}<br>
-          ${dd.inputs.tbProj} | ${date}
-        </div>
+        ...
       </div>`;
     }).join('');
   }catch(e){ list.innerHTML=`<div style="color:var(--warn)">${e.message}</div>`; }
