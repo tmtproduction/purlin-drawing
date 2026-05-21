@@ -78,6 +78,7 @@ window.switchTab = tab => {
   document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
   document.getElementById('panel-' + tab).style.display = '';
   if (tab === 'drawings') loadAllDrawings();
+  if (tab === 'projects') loadAllProjects();
 };
 
 // ─── USERS ───
@@ -164,6 +165,131 @@ window.loadAllDrawings = async function () {
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="7" style="color:#f85149;padding:12px">${e.message}</td></tr>`;
   }
+};
+
+// ─── ALL PROJECTS ───
+let _allProjects = {};
+
+window.loadAllProjects = async function () {
+  const tbody = document.getElementById('projects-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" style="color:var(--dim);text-align:center;padding:20px">กำลังโหลด...</td></tr>';
+  try {
+    const snap = await getDocs(collection(db, 'projects'));
+    _allProjects = {};
+    const docs = [];
+    snap.forEach(d => {
+      _allProjects[d.id] = d.data();
+      docs.push({ id: d.id, ...d.data() });
+    });
+    docs.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+
+    // Stats
+    const totalSheets = docs.reduce((s, d) => s + (d.sheetCount || d.sheets?.length || 1), 0);
+    document.getElementById('stat-proj-total').textContent  = docs.length;
+    document.getElementById('stat-proj-sheets').textContent = totalSheets;
+    document.getElementById('stat-proj-users').textContent  = new Set(docs.map(d => d.uid)).size;
+
+    if (!docs.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--dim);text-align:center;padding:20px">ยังไม่มี projects</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = docs.map(dd => {
+      const user  = _users[dd.uid];
+      const date  = new Date(dd.savedAt || 0).toLocaleDateString('th-TH');
+      const sheets = dd.sheets || [];
+      const nSheets = dd.sheetCount || sheets.length || 1;
+      // Collect unique purlin sizes across sheets
+      const sizes = [...new Set(sheets.map(s =>
+        s.inputs?.pH ? `Z-${s.inputs.pH}×${s.inputs.pB1}` : '—'
+      ))].join(', ');
+      return `<tr>
+        <td style="color:var(--accent);font-weight:700">${dd.name || '—'}</td>
+        <td>${user?.displayName || dd.email?.split('@')[0] || dd.uid?.slice(0,8) || '—'}</td>
+        <td style="text-align:center">
+          <span class="badge badge-engineer">${nSheets} sheets</span>
+        </td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:10px">${sizes || '—'}</td>
+        <td>${date}</td>
+        <td>
+          <button class="btn btn-view" onclick="viewProject('${dd.id}')">🔍 ดู</button>
+          <button class="btn btn-del"  onclick="deleteProject('${dd.id}','${(dd.name||'').replace(/'/g,'')}')">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--warn);padding:12px">${e.message}</td></tr>`;
+  }
+};
+
+// ─── VIEW PROJECT DETAIL ───
+window.viewProject = function (docId) {
+  const dd = _allProjects[docId];
+  if (!dd) return;
+  const user    = _users[dd.uid];
+  const sheets  = dd.sheets || [];
+  const savedDate = new Date(dd.savedAt || 0).toLocaleString('th-TH', { dateStyle:'long', timeStyle:'short' });
+
+  const sheetsHTML = sheets.map((sh, i) => {
+    const inp  = sh.inputs || {};
+    const holes = sh.holes || [];
+    return `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
+        padding:12px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-weight:700;color:var(--accent);font-size:12px">
+            Sheet ${sh.sheetNum || i+1} — ${sh.label || 'P'+(i+1)}
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim)">
+            Z-${inp.pH}×${inp.pB1}×${inp.pB2}×${inp.pD}×${inp.pt} / L=${inp.pL} mm
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-family:'Share Tech Mono',monospace;font-size:10px">
+          <thead>
+            <tr>
+              <th style="background:var(--panel);color:var(--accent);padding:4px 8px;text-align:left;font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">TYPE</th>
+              <th style="background:var(--panel);color:var(--accent);padding:4px 8px;text-align:left;font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">FACE</th>
+              <th style="background:var(--panel);color:var(--accent);padding:4px 8px;text-align:left;font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">X (mm)</th>
+              <th style="background:var(--panel);color:var(--accent);padding:4px 8px;text-align:left;font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">QTY</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${holes.length ? holes.map(h => `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:4px 8px;font-weight:700;color:var(--text)">${h.holeType||'—'}</td>
+                <td style="padding:4px 8px"><span class="badge" style="background:rgba(88,166,255,.15);color:#58a6ff">${h.face||'WEB'}</span></td>
+                <td style="padding:4px 8px;color:var(--dim)">${h.X}</td>
+                <td style="padding:4px 8px;color:var(--dim)">${h.qty}</td>
+              </tr>`).join('')
+            : `<tr><td colspan="4" style="padding:6px 8px;color:var(--dim)">ไม่มีรูเจาะ</td></tr>`}
+          </tbody>
+        </table>
+        <div style="margin-top:8px;font-size:9px;color:var(--dim)">
+          Project: ${inp.tbProj||'—'} &nbsp;|&nbsp; Drawing No: ${inp.tbNo||'—'} &nbsp;|&nbsp; Qty: ${inp.tbQty||'1'} pcs
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('modal-title').textContent = dd.name || 'Project Detail';
+  document.getElementById('modal-subtitle').innerHTML =
+    `<span style="color:var(--dim);font-size:11px">
+      โดย ${user?.displayName || dd.email || '—'} &nbsp;·&nbsp; ${savedDate} &nbsp;·&nbsp;
+      <span class="badge badge-engineer">${sheets.length} sheets</span>
+    </span>`;
+  document.getElementById('modal-body').innerHTML = sheetsHTML ||
+    '<div style="color:var(--dim);padding:20px;text-align:center">ไม่มีข้อมูล sheets</div>';
+
+  document.getElementById('detail-modal').style.display = 'flex';
+};
+
+// ─── DELETE PROJECT ───
+window.deleteProject = async function (docId, name) {
+  if (!confirm(`ลบ Project "${name}" ?\nทุก sheets จะหายไป ไม่สามารถกู้คืนได้`)) return;
+  try {
+    await deleteDoc(doc(db, 'projects', docId));
+    delete _allProjects[docId];
+    loadAllProjects();
+  } catch (e) { alert('❌ ' + e.message); }
 };
 
 // ─── DELETE DRAWING ───
@@ -441,7 +567,8 @@ tr:hover td{background:rgba(88,166,255,.04)}
 
     <div class="tabs">
       <button class="tab-btn active" data-tab="users"    onclick="switchTab('users')">👥 Users</button>
-      <button class="tab-btn"        data-tab="drawings" onclick="switchTab('drawings')">📄 All Drawings</button>
+      <button class="tab-btn"        data-tab="projects" onclick="switchTab('projects')">📁 All Projects</button>
+      <button class="tab-btn"        data-tab="drawings" onclick="switchTab('drawings')">📄 Drawings (legacy)</button>
     </div>
 
     <!-- USERS PANEL -->
@@ -456,6 +583,46 @@ tr:hover td{background:rgba(88,166,255,.04)}
           </thead>
           <tbody id="users-tbody">
             <tr><td colspan="6" style="color:var(--dim);text-align:center;padding:20px">กำลังโหลด...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PROJECTS PANEL -->
+    <div id="panel-projects" class="tab-panel" style="display:none">
+
+      <div class="stats">
+        <div class="stat-card">
+          <div class="num" id="stat-proj-total">—</div>
+          <div class="lbl">Total Projects</div>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="stat-proj-sheets">—</div>
+          <div class="lbl">Total Sheets</div>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="stat-proj-users">—</div>
+          <div class="lbl">Users (มี projects)</div>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost" onclick="loadAllProjects()"
+          style="align-self:center;font-size:10px">🔄 Refresh</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ชื่อ Project</th>
+              <th>โดย</th>
+              <th>Sheets</th>
+              <th>Purlin Sizes</th>
+              <th>บันทึกเมื่อ</th>
+              <th style="width:80px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="projects-tbody">
+            <tr><td colspan="6" style="color:var(--dim);text-align:center;padding:20px">กด tab เพื่อโหลด</td></tr>
           </tbody>
         </table>
       </div>
