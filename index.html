@@ -818,22 +818,36 @@ function leaderNote(hx,hy,hRad,noteText,side='left',c=CDIM){
   s+=ARR(edgeX,edgeY,Math.cos(ANGLE),Math.sin(ANGLE),c);
   // ข้อความบนเส้นนอน (เหนือ 1.5px)
   const txtX=(kinkX+horizEndX)/2;
-  s+=ST(txtX,kinkY-2.5,noteText,7.5,'middle',c);
+  s+=ST(txtX,kinkY-2.5,noteText,8.5,'middle',c);
 
   return s;
 }
 
+/* ── HOLE TYPE STYLE MAP ──
+   กำหนดสี stroke/fill และ symbol สำหรับแต่ละ type
+── */
+const HOLE_STYLE={
+  H1:{stroke:'#1a5c8a', fill:'#e8f4fd'},
+  H2:{stroke:'#6b1a8a', fill:'#f4e8fd'},
+  H3:{stroke:'#1a6b2e', fill:'#e8fded'},
+  default:{stroke:COUT, fill:'white'}
+};
+function holeStyle(holeType){
+  return HOLE_STYLE[holeType]||HOLE_STYLE.default;
+}
+
 /* ── PILL CALLOUT (single) ── */
-function pillCallout(ox,oy,text,hx,hy){
-  const cw=5.6, bh=13, pad=8;
-  const bw=Math.max(text.length*cw+pad*2,55);
-  let s=`<rect x="${r(ox-bw/2)}" y="${r(oy-bh/2)}" width="${r(bw)}" height="${bh}" rx="${bh/2}" fill="white" stroke="${COUT}" stroke-width="0.7"/>`;
-  s+=ST(ox,oy+4,text,7,'middle',COUT);
+function pillCallout(ox,oy,text,hx,hy,holeType){
+  const cw=5.5, bh=15, pad=9;
+  const bw=Math.max(text.length*cw+pad*2,60);
+  const hs=holeStyle(holeType);
+  let s=`<rect x="${r(ox-bw/2)}" y="${r(oy-bh/2)}" width="${r(bw)}" height="${bh}" rx="${bh/2}" fill="${hs.fill}" stroke="${hs.stroke}" stroke-width="0.9"/>`;
+  s+=ST(ox,oy+4.5,text,8.5,'middle',hs.stroke,'bold');
   if(hx!==undefined){
     const ang=Math.atan2(hy-oy,hx-ox);
     const ex=ox+Math.cos(ang)*(bw/2+1), ey=oy+Math.sin(ang)*(bh/2+1);
-    s+=SL(ex,ey,hx,hy,COUT,.55);
-    s+=SC(hx,hy,2.2,COUT,.5,'#111');
+    s+=SL(ex,ey,hx,hy,hs.stroke,.65);
+    s+=SC(hx,hy,2.5,hs.stroke,.6,hs.stroke);
   }
   return s;
 }
@@ -854,37 +868,49 @@ function hitsBox(ox,oy,bw,bh,M=3){
 }
 
 /* ── RIBBON CALLOUT (multi-hole grouped) ──
-   bracket ครอบกลุ่มรู + pill label กลาง
-   collision-aware: หา ARM offset ที่ไม่ชน
+   bracket ครอบกลุ่มรู + pill label
+   - bracket verticals บาง, horizontal หนากว่า
+   - leader ลากจาก leaderAnchorX (ไม่ผ่านรู)
+   - collision-aware: ARM ขยับจนไม่ชน
 ── */
-function ribbonCallout(x1,x2,y,text,above=true){
+function ribbonCallout(x1,x2,y,text,above=true,holeType){
   const mid=(x1+x2)/2;
-  const cw=5.6, bh=13, pad=8;
-  const bw=Math.max(text.length*cw+pad*2,62);
+  const cw=5.5, bh=15, pad=9;
+  const bw=Math.max(text.length*cw+pad*2,65);
   const sign=above?-1:1;
-  // clamp pill X ไม่ให้เกินกรอบ SVG
+  const hs=holeStyle(holeType);
+
+  // clamp pill X
   const pillX=Math.max(bw/2+4, Math.min(SW-bw/2-4, mid));
 
-  // Find arm length that avoids collision
-  let ARM=20;
-  for(let tries=0;tries<6;tries++){
-    const pillY=y+sign*(ARM+18);
-    if(!hitsBox(mid,pillY,bw,bh)){break;}
+  // Find arm length ที่ไม่ชน
+  let ARM=22;
+  for(let tries=0;tries<8;tries++){
+    const pillY=y+sign*(ARM+20);
+    if(!hitsBox(pillX,pillY,bw,bh)){break;}
     ARM+=18;
   }
 
   const barY=y+sign*ARM;
-  const pillY=barY+sign*18;
+  const pillY=barY+sign*20;
+
+  // Leader anchor: clamp ให้อยู่ใต้ bracket ไม่ผ่านรู
+  const leaderAnchorX=Math.max(x1, Math.min(x2, pillX));
+  const leaderEndY=above?pillY+bh/2:pillY-bh/2;
 
   let s='';
-  s+=SL(x1,y,x1,barY,COUT,.55);
-  s+=SL(x2,y,x2,barY,COUT,.55);
-  s+=SL(x1,barY,x2,barY,COUT,.6);
-  s+=SL(mid,barY,pillX,pillY+(above?bh/2:-bh/2),COUT,.45);
-  s+=`<rect x="${r(pillX-bw/2)}" y="${r(pillY-bh/2)}" width="${r(bw)}" height="${bh}" rx="${bh/2}" fill="white" stroke="${COUT}" stroke-width="0.7"/>`;
-  s+=ST(pillX,pillY+4,text,7,'middle',COUT);
+  // Bracket verticals — บาง
+  s+=SL(x1,y,x1,barY,hs.stroke,.5);
+  s+=SL(x2,y,x2,barY,hs.stroke,.5);
+  // Bracket horizontal — หนากว่า
+  s+=SL(x1,barY,x2,barY,hs.stroke,.9);
+  // Leader dashed
+  s+=SL(leaderAnchorX,barY,pillX,leaderEndY,hs.stroke,.5,'3,2');
 
-  // Register pill box
+  // Pill
+  s+=`<rect x="${r(pillX-bw/2)}" y="${r(pillY-bh/2)}" width="${r(bw)}" height="${bh}" rx="${bh/2}" fill="${hs.fill}" stroke="${hs.stroke}" stroke-width="0.9"/>`;
+  s+=ST(pillX,pillY+4.5,text,8.5,'middle',hs.stroke,'bold');
+
   blockBox(pillX,pillY,bw,bh);
   return s;
 }
@@ -910,10 +936,12 @@ function renderHoleCallouts(holeGroups, above=true){
   // Separate SVG: callouts first, then dots on top
   let dotsSVG='';
   clusters.forEach(cluster=>{
+    const clusterHoleType=cluster[0].holeType; // ใช้ type ของรูแรกใน cluster
     if(cluster.length===1){
-      const {hx,hy,lbl}=cluster[0];
-      s+=placeCalloutSingle(hx,hy,lbl,above);
-      dotsSVG+=SC(hx,hy,2.2,COUT,.5,'#111');
+      const {hx,hy,lbl,holeType}=cluster[0];
+      s+=placeCalloutSingle(hx,hy,lbl,above,holeType);
+      const hs=holeStyle(holeType);
+      dotsSVG+=SC(hx,hy,2.5,hs.stroke,.6,hs.stroke);
     } else {
       const x1=cluster[0].hx, x2=cluster[cluster.length-1].hx;
       const y=cluster[0].hy;
@@ -921,27 +949,29 @@ function renderHoleCallouts(holeGroups, above=true){
       const dia=cluster[0].dia||18;
       const allSameDia=cluster.every(h=>h.dia===dia);
       const lbl=allSameDia
-        ?`${totalQty}-ø ${fmt(dia)} Hole.`
+        ?`${totalQty}-(${SLOT_DH}×${SLOT_WH}) Slot.`
         :`${totalQty} Holes (see schedule)`;
-      s+=ribbonCallout(x1,x2,y,lbl,above);
-      cluster.forEach(h=>{ dotsSVG+=SC(h.hx,h.hy,2.2,COUT,.5,'#111'); });
+      s+=ribbonCallout(x1,x2,y,lbl,above,clusterHoleType);
+      cluster.forEach(h=>{
+        const hs=holeStyle(h.holeType);
+        dotsSVG+=SC(h.hx,h.hy,2.5,hs.stroke,.6,hs.stroke);
+      });
     }
   });
   return s+dotsSVG; // dots render after callouts
 }
 
 /* ── SINGLE PILL (collision-aware) ── */
-function placeCalloutSingle(hx,hy,lbl,preferAbove=true){
-  const cw=5.6,bh=14,pad=8;
-  const bw=Math.max(lbl.length*cw+pad*2,55);
+function placeCalloutSingle(hx,hy,lbl,preferAbove=true,holeType){
+  const cw=5.5,bh=15,pad=9;
+  const bw=Math.max(lbl.length*cw+pad*2,60);
   const M=3;
-  // clamp X ให้ pill อยู่ในกรอบ SVG เสมอ
   const clampX=ox=>Math.max(bw/2+M, Math.min(SW-bw/2-M, ox));
   function tryAt(ox,oy){
     const cx=clampX(ox);
     if(!hitsBox(cx,oy,bw,bh,M)){
       blockBox(cx,oy,bw,bh);
-      return pillCallout(cx,oy,lbl,hx,hy);
+      return pillCallout(cx,oy,lbl,hx,hy,holeType);
     }
     return null;
   }
@@ -953,12 +983,12 @@ function placeCalloutSingle(hx,hy,lbl,preferAbove=true){
   for(const coy of oys)for(const cox of oxs){const res=tryAt(cox,coy);if(res)return res;}
   const cx=clampX(oxs[0]),coy=oys[oys.length-1];
   blockBox(cx,coy,bw,bh);
-  return pillCallout(cx,coy,lbl,hx,hy);
+  return pillCallout(cx,coy,lbl,hx,hy,holeType);
 }
 
 /* Legacy wrapper */
-function placeCallout(hx,hy,lbl,preferAbove=true){
-  return placeCalloutSingle(hx,hy,lbl,preferAbove);
+function placeCallout(hx,hy,lbl,preferAbove=true,holeType){
+  return placeCalloutSingle(hx,hy,lbl,preferAbove,holeType);
 }
 
 /* ── Z SECTION PROFILE — orientation ตามมาตรฐาน Z Purlin
@@ -1068,7 +1098,7 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
     const noteLbl=hole?.slot?`${SLOT_DH}×${SLOT_WH} Slot`:`Ø${fmt(hole?.dia||18)}`;
     s+=SL(sec_cx,screenY,ldX,ldY,CDIM,.45);
     s+=SL(ldX,ldY,ldX+30,ldY,CDIM,.45);
-    s+=ST(ldX+32,ldY+3,noteLbl,6.5,'start',CDIM);
+    s+=ST(ldX+32,ldY+3,noteLbl,8,'start',CDIM);
   });
 
   // Gauge dim (C-to-C H1 pair)
@@ -1088,7 +1118,7 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
     s+=`<rect x="${r(hx-fw/2)}" y="${r(hy-t_px)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
     s+=SL(hx,hy-t_px-4,hx,hy-t_px-20,CDIM,.45);
     s+=SL(hx,hy-t_px-20,hx-28,hy-t_px-20,CDIM,.45);
-    s+=ST(hx-30,hy-t_px-17,`${SLOT_DH}×${SLOT_WH} Slot`,6.5,'end',CDIM);
+    s+=ST(hx-30,hy-t_px-17,`${SLOT_DH}×${SLOT_WH} Slot`,8,'end',CDIM);
   });
   holes.filter(h=>h.face==='BOT').forEach(hole=>{
     const hx=sec_cx+sB2/2, hy=sec_cy;
@@ -1096,7 +1126,7 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
     s+=`<rect x="${r(hx-fw/2)}" y="${r(hy)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
     s+=SL(hx,hy+t_px+4,hx,hy+t_px+20,CDIM,.45);
     s+=SL(hx,hy+t_px+20,hx+28,hy+t_px+20,CDIM,.45);
-    s+=ST(hx+30,hy+t_px+17,`${SLOT_DH}×${SLOT_WH} Slot`,6.5,'start',CDIM);
+    s+=ST(hx+30,hy+t_px+17,`${SLOT_DH}×${SLOT_WH} Slot`,8,'start',CDIM);
   });
 
   // H dim ด้านซ้ายสุด
@@ -1428,6 +1458,26 @@ function generate(){
   ════════════════════════════════════════ */
   s+=ST(WX+webPxW/2, MT+11, 'WEB VIEW (ELEVATION)',9,'middle','#000','bold');
   s+=ST(WX+webPxW/2, MT+21, purlinLabel,7.5,'middle','#555');
+
+  /* ── HOLE TYPE LEGEND (top-right) ── */
+  {
+    const LEG=[
+      {type:'H1',label:'H1 — Web slot (×2)'},
+      {type:'H2',label:'H2 — Flange slot (T+B)'},
+      {type:'H3',label:'H3 — Web circle'},
+    ];
+    const lx=SW-MR-4, ly=MT+6, lh=13, lgap=2;
+    const lbgW=148;
+    s+=`<rect x="${r(lx-lbgW)}" y="${r(ly-2)}" width="${lbgW}" height="${LEG.length*(lh+lgap)+4}" rx="3" fill="#f8f8f4" stroke="#ccc" stroke-width="0.5"/>`;
+    LEG.forEach((item,i)=>{
+      const hs=holeStyle(item.type);
+      const iy=ly+i*(lh+lgap)+lh/2+1;
+      // Colored dot
+      s+=SC(lx-lbgW+10, iy, 4, hs.stroke, .7, hs.fill);
+      // Label
+      s+=ST(lx-lbgW+18, iy+3.5, item.label, 7.5, 'start', hs.stroke, 'bold');
+    });
+  }
   if(distorted) s+=ST(WX+webPxW/2,MT+30,'(DIAGRAMMATIC)',6.5,'middle','#c00');
 
   // Centerline
@@ -1539,7 +1589,7 @@ function generate(){
     const yKey=Math.round(hy);
     if(!webHolesByY[yKey]) webHolesByY[yKey]=[];
     const lbl=hole.slot?`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`:`${hole.qty}-Ø${fmt(hole.dia)} Hole.`;
-    webHolesByY[yKey].push({hx,hy,qty:hole.qty,dia:hole.dia,slot:hole.slot,holeType:hole.holeType,lbl});
+    webHolesByY[yKey].push({hx,hy,qty:hole.qty,dia:hole.dia,slot:hole.slot,holeType:hole.holeType||'H1',lbl});
   });
 
   // GL dimension between H1 pairs (group by X, find pairs of H1 slots)
@@ -1640,7 +1690,7 @@ function generate(){
     }
     s+=SL(hx-3,cy,hx+3,cy,'#555',.4,'3,2');
     s+=SL(hx,cy-3,hx,cy+3,'#555',.4,'3,2');
-    s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,true);
+    s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,true,'H2');
   });
 
   /* BOT face holes */
@@ -1655,7 +1705,7 @@ function generate(){
     } else {
       s+=`<circle cx="${r(hx)}" cy="${r(cy)}" r="${r(hr,2)}" stroke="#555" stroke-width="0.7" fill="white" stroke-dasharray="3,2"/>`;
     }
-    s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,false);
+    s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,false,'H2');
   });
 
   // B-B cut lines rendered AFTER callouts
