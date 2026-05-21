@@ -1712,15 +1712,21 @@ function generate(){
   });
 
   // สร้าง schedule rows ที่ถูกต้อง
+  // H2 → แยก 2 บรรทัด (T และ B)
+  // H1 → 1 บรรทัด face W จำนวน 2 รู
+  // เรียงลำดับ T → W → B
   const schedRows=[];
   rawRows.forEach(row=>{
     if(row.holeType==='H2'){
-      // H2 = 1 row แต่เจาะ 2 รู (T+B)
-      schedRows.push({...row, face:'T+B', holeCount:2,
+      // H2 = แยก 2 บรรทัด: T (B1) และ B (B2)
+      schedRows.push({...row, face:'T', holeCount:1,
         shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`,
-        yDisp:'B1+B2'});
+        yDisp:'(B1)'});
+      schedRows.push({...row, face:'B', holeCount:1,
+        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`,
+        yDisp:'(B2)'});
     } else if(row.holeType==='H1'){
-      // H1 = 1 row แต่เจาะ 2 slots บน web
+      // H1 = 1 บรรทัด face W จำนวน 2 รู
       schedRows.push({...row, face:'W', holeCount:2,
         shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`,
         yDisp:fmt(H/2-getTMTRow(H).GL/2)+'/'+fmt(H/2+getTMTRow(H).GL/2)});
@@ -1741,8 +1747,8 @@ function generate(){
   });
 
   // เรียง: X น้อย→มาก, ภายใน X เดียวกัน เรียง T→W→B
-  const faceOrder={'T':0,'T+B':1,'W':2,'B':3};
-  schedRows.sort((a,b)=>a.X!==b.X ? a.X-b.X : (faceOrder[a.face]??2)-(faceOrder[b.face]??2));
+  const faceOrder={'T':0,'W':1,'B':2};
+  schedRows.sort((a,b)=>a.X!==b.X ? a.X-b.X : (faceOrder[a.face]??1)-(faceOrder[b.face]??1));
 
   const schY=divY+6;
   s+=SR(SCH_X-4,schY,SCH_W+4,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
