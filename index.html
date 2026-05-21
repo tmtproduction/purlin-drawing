@@ -948,7 +948,7 @@ function renderHoleCallouts(holeGroups, above=true){
   // Separate SVG: callouts first, then dots on top
   let dotsSVG='';
   clusters.forEach(cluster=>{
-    const clusterHoleType=cluster[0].holeType; // ใช้ type ของรูแรกใน cluster
+    const clusterHoleType=cluster[0].holeType;
     if(cluster.length===1){
       const {hx,hy,lbl,holeType}=cluster[0];
       s+=placeCalloutSingle(hx,hy,lbl,above,holeType);
@@ -957,12 +957,14 @@ function renderHoleCallouts(holeGroups, above=true){
     } else {
       const x1=cluster[0].hx, x2=cluster[cluster.length-1].hx;
       const y=cluster[0].hy;
+      // นับ qty รวมของ cluster — แต่ละ entry ใน cluster คือ 1 hole row
+      // H1 มี 2 Y rows ที่ X เดียวกัน → totalQty = จำนวนรูจริง (qty * 2 สำหรับ H1 pair)
       const totalQty=cluster.reduce((sum,h)=>sum+(h.qty||1),0);
-      const dia=cluster[0].dia||18;
-      const allSameDia=cluster.every(h=>h.dia===dia);
-      const lbl=allSameDia
+      const dia=cluster[0].dia||SLOT_DH;
+      const isSlotCluster=cluster.every(h=>h.slot!==false);
+      const lbl=isSlotCluster
         ?`${totalQty}-(${SLOT_DH}×${SLOT_WH}) Slot.`
-        :`${totalQty} Holes (see schedule)`;
+        :`${totalQty}-Ø${fmt(dia)} Hole.`;
       s+=ribbonCallout(x1,x2,y,lbl,above,clusterHoleType);
       cluster.forEach(h=>{
         const hs=holeStyle(h.holeType);
@@ -1142,17 +1144,21 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
     const hx=sec_cx-sB1/2, hy=sec_cy-sH;
     const fw=Math.max(SLOT_WH*sc*0.5,8), fh=Math.max(SLOT_DH*sc*0.4,4);
     s+=`<rect x="${r(hx-fw/2)}" y="${r(hy-t_px)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
-    s+=SL(hx,hy-t_px-4,hx,hy-t_px-20,CDIM,.45);
-    s+=SL(hx,hy-t_px-20,hx-28,hy-t_px-20,CDIM,.45);
-    s+=ST(hx-30,hy-t_px-17,`${SLOT_DH}×${SLOT_WH} Slot`,8,'end',CDIM);
+    // label ออกซ้าย ห่างจาก profile
+    const ldLen=Math.max(sB1*0.7, 30);
+    s+=SL(hx,hy-t_px-3,hx,hy-t_px-16,CDIM,.45);
+    s+=SL(hx,hy-t_px-16,hx-ldLen,hy-t_px-16,CDIM,.45);
+    s+=ST(hx-ldLen-2,hy-t_px-13,`${SLOT_DH}×${SLOT_WH} Slot`,8,'end',CDIM);
   });
   holes.filter(h=>h.face==='BOT').forEach(hole=>{
     const hx=sec_cx+sB2/2, hy=sec_cy;
     const fw=Math.max(SLOT_WH*sc*0.5,8), fh=Math.max(SLOT_DH*sc*0.4,4);
     s+=`<rect x="${r(hx-fw/2)}" y="${r(hy)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
-    s+=SL(hx,hy+t_px+4,hx,hy+t_px+20,CDIM,.45);
-    s+=SL(hx,hy+t_px+20,hx+28,hy+t_px+20,CDIM,.45);
-    s+=ST(hx+30,hy+t_px+17,`${SLOT_DH}×${SLOT_WH} Slot`,8,'start',CDIM);
+    // label ออกขวา ห่างจาก profile
+    const ldLen=Math.max(sB2*0.7, 30);
+    s+=SL(hx,hy+t_px+3,hx,hy+t_px+16,CDIM,.45);
+    s+=SL(hx,hy+t_px+16,hx+ldLen,hy+t_px+16,CDIM,.45);
+    s+=ST(hx+ldLen+2,hy+t_px+19,`${SLOT_DH}×${SLOT_WH} Slot`,8,'start',CDIM);
   });
 
   // H dim ด้านซ้ายสุด
