@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Z Purlin — Hole Drawing v4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--panel:#161b22;--border:#21262d;--accent:#58a6ff;
+  --accent2:#3fb950;--warn:#f85149;--text:#e6edf3;--dim:#8b949e;--inp:#0d1117;
+}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden}
+#panel{width:330px;min-width:330px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.ph{padding:12px 14px 10px;background:var(--bg);border-bottom:1px solid var(--border)}
+.ph h1{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:2px;text-transform:uppercase}
+.ph p{font-size:8.5px;color:var(--dim);font-family:'Share Tech Mono',monospace;margin-top:2px}
+.pb{flex:1;overflow-y:auto;padding:9px 10px 0;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.pb::-webkit-scrollbar{width:3px}.pb::-webkit-scrollbar-thumb{background:var(--border)}
+.pf{padding:8px 10px;border-top:1px solid var(--border);display:flex;gap:6px}
+.slabel{font-size:8px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);margin:11px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--border)}
+.row{display:flex;gap:5px;margin-bottom:4px}
+.f{flex:1}
+label{display:block;font-size:8.5px;color:var(--dim);font-family:'Share Tech Mono',monospace;margin-bottom:2px}
+input[type=number],input[type=text],select{width:100%;background:var(--inp);border:1px solid var(--border);color:var(--text);padding:4px 6px;font-size:11px;font-family:'Share Tech Mono',monospace;border-radius:3px;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--accent)}
+select option{background:var(--panel)}
+.presets{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:7px}
+.pre-btn{background:none;border:1px solid var(--border);color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:8.5px;padding:3px 7px;border-radius:2px;cursor:pointer;transition:all .15s}
+.pre-btn:hover{border-color:var(--accent);color:var(--accent)}
+.ht{width:100%;border-collapse:collapse;font-size:10px;font-family:'Share Tech Mono',monospace}
+.ht th{background:var(--bg);color:var(--accent);padding:3px 2px;font-size:7px;letter-spacing:.7px;border:1px solid var(--border);text-align:center}
+.ht td{border:1px solid var(--border);padding:0;vertical-align:middle}
+.ht td input,.ht td select{border:none;background:transparent;padding:3px;font-size:9.5px;color:var(--text);border-radius:0}
+.ht td input:focus,.ht td select:focus{background:rgba(88,166,255,.08)}
+.face-WEB{background:rgba(31,61,110,.28)!important}
+.face-TOP{background:rgba(30,58,47,.28)!important}
+.face-BOT{background:rgba(61,35,20,.28)!important}
+.dbtn{background:none;border:none;color:#6e7681;cursor:pointer;font-size:10px;padding:2px 4px;width:18px;line-height:1;transition:color .15s}
+.dbtn:hover{color:var(--warn)}
+#val-msg{display:none;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);color:#f0a0a0;font-family:'Share Tech Mono',monospace;font-size:8.5px;padding:5px 8px;border-radius:3px;margin:4px 0;line-height:1.6}
+.btn{padding:6px 11px;border:none;border-radius:3px;cursor:pointer;font-family:'Rajdhani';font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;transition:all .15s}
+.bp{background:var(--accent);color:#04080f}.bp:hover{background:#79c0ff}
+.bg{background:transparent;border:1px solid var(--border);color:var(--dim)}.bg:hover{border-color:var(--accent);color:var(--accent)}
+.badd{background:transparent;border:1px dashed var(--border);color:var(--dim);width:100%;margin-top:4px;padding:4px;font-size:10px;border-radius:2px;cursor:pointer;font-family:'Share Tech Mono',monospace;transition:all .15s}
+.badd:hover{border-color:var(--accent2);color:var(--accent2)}
+#right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{padding:7px 13px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:10px}
+.toolbar h2{font-size:9.5px;font-weight:600;color:var(--dim);letter-spacing:2.5px;text-transform:uppercase;flex:1}
+#slbl{font-family:'Share Tech Mono',monospace;font-size:8.5px;color:var(--dim)}
+.scroll{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px;background:#07090f}
+#svg-out{background:#fff;box-shadow:0 8px 56px rgba(0,0,0,.75);display:block}
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{background:#fff!important;display:block!important;height:auto!important;overflow:visible!important;margin:0!important;padding:0!important}
+  #panel,.toolbar{display:none!important}
+  #right{display:block!important;overflow:visible!important;height:auto!important;width:100%!important}
+  .scroll{display:block!important;padding:0!important;overflow:visible!important;background:#fff!important;width:100%!important;height:auto!important}
+  #svg-out{display:block!important;box-shadow:none!important;width:100%!important;height:auto!important;max-width:100%!important}
+  @page{margin:3mm;size:A3 landscape}
+}
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <div class="ph">
+    <h1>Z Purlin Drawing</h1>
+    <p>HOLE PATTERN GENERATOR v4 — TMT STEEL</p>
+  </div>
+  <div class="pb">
+    <div class="slabel">Preset Size</div>
+    <div class="presets" id="preset-bar">
+      <button class="pre-btn" data-p="Z100">Z-100</button>
+      <button class="pre-btn" data-p="Z120">Z-120</button>
+      <button class="pre-btn" data-p="Z150">Z-150</button>
+      <button class="pre-btn" data-p="Z175">Z-175</button>
+      <button class="pre-btn" data-p="Z200">Z-200</button>
+      <button class="pre-btn" data-p="Z250">Z-250</button>
+    </div>
+    <div class="slabel">ขนาด Z Purlin</div>
+    <div class="row"><div class="f"><label>L — ความยาว (mm)</label><input type="number" id="pL" value="6000" min="100" step="50"></div></div>
+    <div class="row">
+      <div class="f"><label>H — ความสูง Web (mm)</label><input type="number" id="pH" value="152" min="30"></div>
+      <div class="f"><label>t — ความหนา (mm)</label><input type="number" id="pt" value="2.3" step="0.1" min="0.5"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>B1 — หน้าแปลนบน (mm)</label><input type="number" id="pB1" value="65" min="10"></div>
+      <div class="f"><label>B2 — หน้าแปลนล่าง (mm)</label><input type="number" id="pB2" value="65" min="10"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>D — Lip (mm)</label><input type="number" id="pD" value="20" min="0"></div>
+    </div>
+
+    <div class="slabel">รายการรูเจาะ</div>
+    <div id="val-msg"></div>
+    <table class="ht">
+      <thead>
+        <tr>
+          <th style="width:24px">Qty</th>
+          <th style="width:32px">หน้า</th>
+          <th style="width:52px">X (mm)</th>
+          <th style="width:56px">Type</th>
+          <th style="width:44px">Y (mm)</th>
+          <th style="width:42px">Ø / Shape</th>
+          <th style="width:18px"></th>
+        </tr>
+      </thead>
+      <tbody id="htbody"></tbody>
+    </table>
+    <button class="badd" onclick="addHole()">＋ เพิ่มรูเจาะ</button>
+
+    <div class="slabel">Title Block</div>
+    <div class="row"><div class="f"><label>Project</label><input type="text" id="tbProj" value="TMT Steel PCL"></div></div>
+    <div class="row">
+      <div class="f"><label>Drawing No.</label><input type="text" id="tbNo" value="Z-HDG-001"></div>
+      <div class="f"><label>Rev.</label><input type="text" id="tbRev" value="A"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Drawn by</label><input type="text" id="tbBy" value=""></div>
+      <div class="f"><label>จำนวนชิ้น (pcs)</label><input type="number" id="tbQty" value="1" min="1"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Date</label><input type="text" id="tbDate" value=""></div>
+    </div>
+    <div class="row"><div class="f"><label>Note</label><input type="text" id="tbNote" value="ทุกขนาดหน่วย mm."></div></div>
+    <div style="height:10px"></div>
+  </div>
+  <div class="pf">
+    <button class="btn bp" onclick="generate()" style="flex:1">▶ สร้าง Drawing</button>
+    <button class="btn bg" onclick="window.print()" title="Print">🖨</button>
+  </div>
+</div>
+
+<div id="right">
+  <div class="toolbar">
+    <h2>Drawing Preview</h2>
+    <span id="slbl">—</span>
+    <button class="btn bg" onclick="window.print()" style="font-size:9px;padding:4px 11px">Print / PDF</button>
+  </div>
+  <div class="scroll">
+    <svg id="svg-out" width="1190" height="841" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1190" height="841" fill="#fff"/>
+      <text x="595" y="420" text-anchor="middle" font-size="13" fill="#bbb" font-family="Share Tech Mono,monospace">กรอกข้อมูลและกด ▶ สร้าง Drawing</text>
+    </svg>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ── PRESETS ── */
+const PRESETS={
+  Z100:{H:100,B1:50,B2:50,D:15,t:1.8},Z120:{H:120,B1:55,B2:55,D:16,t:2.0},
+  Z150:{H:150,B1:60,B2:60,D:18,t:2.3},Z175:{H:175,B1:65,B2:65,D:20,t:2.5},
+  Z200:{H:200,B1:70,B2:70,D:20,t:2.5},Z250:{H:250,B1:75,B2:75,D:25,t:3.0},
+};
+document.getElementById('preset-bar').addEventListener('click',e=>{
+  const p=e.target.dataset.p; if(!p||!PRESETS[p]) return;
+  const ps=PRESETS[p];
+  ['pH','pB1','pB2','pD','pt'].forEach((id,i)=>{
+    document.getElementById(id).value=[ps.H,ps.B1,ps.B2,ps.D,ps.t][i];
+  });
+});
+
+/* ── TMT HOLE LOOKUP TABLE (Full catalogue Z12510–Z25024) ──
+   Key = Width (W) column from catalogue
+   FN  = H1 position from flange top (mm) → Y from web bottom = H - FN
+   FB  = H2 position from flange bottom   → Y from web bottom = FB
+   GL  = Gauge Line from bottom           → Y from web bottom = GL
+   Source: TMT Z Purlin Dimensions table
+── */
+const TMT_HOLES={
+  //  W  : {FN, FB, GL}   (W = web height)
+  127: {FN:49, FB:49, GL:55},
+  152: {FN:61, FB:61, GL:60},
+  203: {FN:74, FB:74, GL:110},
+  254: {FN:74, FB:74, GL:160},
+};
+
+// Detailed per-purlin-no lookup (for exact match when user enters exact H from catalogue)
+// Purlin No → {W, FN, FB, GL}
+const TMT_PURLIN={
+  'Z12510':{W:127,FN:49,FB:49,GL:55},
+  'Z12512':{W:127,FN:49,FB:49,GL:55},
+  'Z12515':{W:127,FN:49,FB:49,GL:55},
+  'Z12519':{W:127,FN:49,FB:49,GL:55},
+  'Z12524':{W:127,FN:49,FB:49,GL:55},
+  'Z15012':{W:152,FN:61,FB:61,GL:60},
+  'Z15015':{W:152,FN:61,FB:61,GL:60},
+  'Z15019':{W:152,FN:61,FB:61,GL:60},
+  'Z15024':{W:152,FN:61,FB:61,GL:60},
+  'Z20015':{W:203,FN:74,FB:74,GL:110},
+  'Z20019':{W:203,FN:74,FB:74,GL:110},
+  'Z20024':{W:203,FN:74,FB:74,GL:110},
+  'Z25015':{W:254,FN:74,FB:74,GL:160},
+  'Z25019':{W:254,FN:74,FB:74,GL:160},
+  'Z25024':{W:254,FN:74,FB:74,GL:160},
+};
+
+// Slot dimensions (same for H1 and H2)
+const SLOT_DH=18, SLOT_WH=22;  // DH = height (short axis), WH = width (long axis)
+
+/* Get TMT row for given H */
+function getTMTRow(H){
+  if(TMT_HOLES[H]) return TMT_HOLES[H];
+  const keys=Object.keys(TMT_HOLES).map(Number).sort((a,b)=>a-b);
+  const best=keys.reduce((prev,curr)=>Math.abs(curr-H)<Math.abs(prev-H)?curr:prev);
+  return TMT_HOLES[best];
+}
+
+/* H1: 2 slots on web, symmetric about H/2, C-to-C = GL
+   Returns [{Y, face, slot}, {Y, face, slot}]
+*/
+function h1Holes(H){
+  const row=getTMTRow(H);
+  const gl=row.GL;
+  const y1=H/2-gl/2;  // lower slot (from bottom)
+  const y2=H/2+gl/2;  // upper slot (from bottom)
+  return[
+    {Y:Math.round(y1*10)/10, face:'WEB', slot:true, dia:SLOT_DH, slotW:SLOT_WH, glSpan:gl},
+    {Y:Math.round(y2*10)/10, face:'WEB', slot:true, dia:SLOT_DH, slotW:SLOT_WH},
+  ];
+}
+
+/* H2: 1 slot on B1 (TOP), 1 slot on B2 (BOT)
+   Returns [{face:'TOP', slot}, {face:'BOT', slot}]
+*/
+function h2Holes(){
+  return[
+    {Y:0, face:'TOP', slot:true, dia:SLOT_DH, slotW:SLOT_WH},
+    {Y:0, face:'BOT', slot:true, dia:SLOT_DH, slotW:SLOT_WH},
+  ];
+}
+
+/* H3: 1 circle at web centre */
+function h3Holes(H){
+  return[{Y:Math.round(H/2), face:'WEB', slot:false, dia:18}];
+}
+
+/* Auto-Y display for Y input field (single representative value) */
+function lookupY(holeType, H){
+  const row=getTMTRow(H);
+  if(holeType==='H1') return `${fmt(H/2-row.GL/2)} / ${fmt(H/2+row.GL/2)}`;
+  if(holeType==='H2') return 'B1+B2';
+  if(holeType==='H3') return fmt(Math.round(H/2));
+  return fmt(Math.round(H/2));
+}
+
+/* Lookup dia display */
+function lookupDia(holeType){
+  if(holeType==='H3') return 'Ø18';
+  return `${SLOT_DH}×${SLOT_WH}`; // H1, H2
+}
+function lookupDiaNum(holeType){ return SLOT_DH; }
+function isSlot(holeType){ return holeType!=='H3'; }
+
+/* ── CONSTANTS ── */
+const SW=1190,SH=841;
+const MONO='Share Tech Mono,monospace';
+const CDIM='#222';   // dimension line color (dark, like CAD)
+const COUT='#000';
+const CTHIN='#666';
+
+const r=(n,d=1)=>Math.round(n*10**d)/10**d;
+const fmt=n=>(n===Math.round(n))?String(n):n.toFixed(1).replace(/\.0$/,'');
+const today=()=>{const d=new Date();return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`};
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* ── SVG PRIMITIVES ── */
+const SL=(x1,y1,x2,y2,c,w,dash='')=>
+  `<line x1="${r(x1)}" y1="${r(y1)}" x2="${r(x2)}" y2="${r(y2)}" stroke="${c}" stroke-width="${w}"${dash?` stroke-dasharray="${dash}"`:''}/>`;
+const SR=(x,y,w,h,c,sw,f='none')=>
+  `<rect x="${r(x)}" y="${r(y)}" width="${r(w,0)}" height="${r(h,0)}" stroke="${c}" stroke-width="${sw}" fill="${f}"/>`;
+const SC=(cx,cy,rad,c,sw,f='none')=>
+  `<circle cx="${r(cx)}" cy="${r(cy)}" r="${r(rad,2)}" stroke="${c}" stroke-width="${sw}" fill="${f}"/>`;
+const ST=(x,y,str,sz,anc='middle',c='#000',wt='normal',xf='')=>
+  `<text x="${r(x)}" y="${r(y)}" font-family="${MONO}" font-size="${sz}" text-anchor="${anc}" fill="${c}" font-weight="${wt}"${xf?` transform="${xf}"`:''}>${esc(str)}</text>`;
+
+/* Filled arrowhead */
+const ARR=(x,y,dx,dy,c=CDIM)=>{
+  const h=Math.hypot(dx,dy),nx=dx/h,ny=dy/h,px=-ny,py=nx,len=6,bw=2.2;
+  return`<polygon points="${r(x)},${r(y)} ${r(x-nx*len+px*bw)},${r(y-ny*len+py*bw)} ${r(x-nx*len-px*bw)},${r(y-ny*len-py*bw)}" fill="${c}" stroke="none"/>`;
+};
+
+/* ════════════════════════════════════════════
+   DIMENSION FUNCTIONS — ตามมาตรฐานบทที่ 7
+   ตำรา Fundamental of Engineering Drawing
+════════════════════════════════════════════
+
+   กฎสำคัญ:
+   1. Extension line: เว้น 1.5px จากขอบรูป, เลย dim line 2px
+   2. Dimension line: บาง (0.45), มีหัวลูกศรสองด้าน
+   3. ตัวเลข: อยู่เหนือ dim line ~1.5px, ตรงกลาง (aligned style)
+   4. ถ้าช่องแคบ: ตัวเลขออกนอก extension line พร้อม leader
+   5. Leader line: เอียง 30-60°, หัวลูกศรจรดขอบรู ห้ามชี้ศูนย์กลาง
+   6. ไม่บอกขนาดซ้ำซ้อน
+*/
+
+// Horizontal dim — with proper extension lines
+// originY = Y ของขอบรูป (extension line เริ่มจากนี้เว้น 1.5px)
+// dimY    = Y ของ dimension line
+function DH(x1,x2,dimY,lbl,c=CDIM,originY=null){
+  const span=Math.abs(x2-x1), mid=(x1+x2)/2;
+  const GAP=1.5, OVER=2; // extension line: gap from object, overshoot past dim line
+  let s='';
+
+  // Extension lines (เส้นบาง)
+  if(originY!==null){
+    // มี origin → ลากจาก originY+GAP ถึง dimY+OVER (หรือ -OVER ถ้า dim อยู่บน)
+    const goUp=dimY<originY;
+    const y0=goUp?originY-GAP:originY+GAP;
+    const y1=goUp?dimY-OVER:dimY+OVER;
+    s+=SL(x1,y0,x1,y1,c,.4);
+    s+=SL(x2,y0,x2,y1,c,.4);
+  } else {
+    // ไม่มี origin → extension line สั้น ±5px
+    s+=SL(x1,dimY-5,x1,dimY+5,c,.4);
+    s+=SL(x2,dimY-5,x2,dimY+5,c,.4);
+  }
+
+  // Dimension line + arrowheads
+  s+=SL(x1,dimY,x2,dimY,c,.45);
+  s+=ARR(x1,dimY,1,0,c)+ARR(x2,dimY,-1,0,c);
+
+  // Label (ตัวเลขเหนือ dim line 1.5px)
+  const sz=span<22?6:span<45?7:8;
+  const lblW=lbl.length*sz*0.62;
+  if(span < lblW+8){
+    // แคบเกิน → ตัวเลขออกนอกด้านขวา มี leader เล็ก
+    s+=SL(x2+2,dimY,x2+10,dimY,c,.35);
+    s+=ST(x2+12,dimY+3,lbl,7,'start',c);
+  } else {
+    s+=ST(mid,dimY-2.5,lbl,sz,'middle',c);
+  }
+  return s;
+}
+
+// Vertical dim — with proper extension lines (aligned style: label หมุน -90°)
+// originX = X ของขอบรูป
+// dimX    = X ของ dimension line (อยู่นอกรูป)
+function DV(dimX,y1,y2,lbl,c=CDIM,originX=null,lblSz=7.5){
+  const span=Math.abs(y2-y1), mid=(y1+y2)/2;
+  const GAP=1.5, OVER=2;
+  const goLeft=originX===null||(dimX<originX);
+  let s='';
+
+  // Extension lines
+  if(originX!==null){
+    const x0=goLeft?originX-GAP:originX+GAP;
+    const x1e=goLeft?dimX-OVER:dimX+OVER;
+    s+=SL(x0,y1,x1e,y1,c,.4);
+    s+=SL(x0,y2,x1e,y2,c,.4);
+  } else {
+    s+=SL(dimX-5,y1,dimX+5,y1,c,.4);
+    s+=SL(dimX-5,y2,dimX+5,y2,c,.4);
+  }
+
+  // Dimension line + arrowheads
+  s+=SL(dimX,y1,dimX,y2,c,.45);
+  s+=ARR(dimX,y1,0,1,c)+ARR(dimX,y2,0,-1,c);
+
+  // Label (aligned: อ่านจากด้านขวา = หมุน -90°)
+  const lblOffset=goLeft?-10:10;
+  const ox=dimX+lblOffset;
+  if(span<16){
+    // แคบเกิน → label ออกด้านข้าง horizontal
+    const lx=goLeft?dimX-13:dimX+13;
+    s+=SL(dimX,mid,lx,mid,c,.3);
+    s+=ST(lx+(goLeft?-2:2),mid+3,lbl,Math.max(lblSz-1,6),goLeft?'end':'start',c);
+  } else {
+    s+=ST(ox,mid,lbl,lblSz,'middle',c,'normal',`rotate(-90,${r(ox)},${r(mid)})`);
+  }
+  return s;
+}
+
+/* ── CHAIN DIMENSION (ตามมาตรฐาน)
+   - เส้น extension line ลากจาก originY เว้น GAP
+   - ตัวเลขอยู่เหนือ dim line
+   - ถ้าช่องแคบ: ยก lane ขึ้น (stagger)
+   - ไม่มีเส้น dim ซ้อนทับกัน
+── */
+const LANE_H=16;
+
+function chainDim(pts, dimY, c=CDIM, originY=null){
+  if(pts.length<2) return '';
+  const GAP=1.5, OVER=2;
+
+  const segs=[];
+  for(let i=0;i<pts.length-1;i++){
+    segs.push({x1:pts[i].x, x2:pts[i+1].x, lbl:pts[i+1].lbl||''});
+  }
+
+  // Greedy lane-packing
+  const laneEdge=[];
+  segs.forEach(seg=>{
+    const lblW=seg.lbl.length*6.5+8;
+    const need=Math.max(seg.x2-seg.x1, lblW);
+    let lane=0;
+    while(lane<laneEdge.length && (laneEdge[lane]||0)+2>seg.x1) lane++;
+    laneEdge[lane]=seg.x1+need;
+    seg.lane=lane;
+  });
+
+  let s='';
+  const goUp=originY===null||(dimY<originY);
+
+  // Extension lines from object edge to baseline (lane 0)
+  pts.forEach(p=>{
+    if(originY!==null){
+      const y0=goUp?originY-GAP:originY+GAP;
+      const y1=goUp?dimY-OVER:dimY+OVER;
+      s+=SL(p.x,y0,p.x,y1,c,.4);
+    } else {
+      const y0=goUp?dimY+6:dimY-6;
+      const y1=goUp?dimY-OVER:dimY+OVER;
+      s+=SL(p.x,y0,p.x,y1,c,.4);
+    }
+  });
+
+  // Baseline
+  s+=SL(pts[0].x,dimY,pts[pts.length-1].x,dimY,c,.45);
+
+  segs.forEach(({x1,x2,lbl,lane})=>{
+    if(!lbl) return;
+    const sign=goUp?-1:1;
+    const y=dimY+sign*(lane*LANE_H);
+    const mid=(x1+x2)/2;
+    const span=x2-x1;
+
+    if(lane>0){
+      // Staggered: extra extension lines up to this lane
+      s+=SL(x1,dimY,x1,y,c,.3,'3,2');
+      s+=SL(x2,dimY,x2,y,c,.3,'3,2');
+      s+=SL(x1,y,x2,y,c,.45);
+    }
+    s+=ARR(x1,y,1,0,c)+ARR(x2,y,-1,0,c);
+
+    const sz=span<22?6:span<50?7:8;
+    const lblW=lbl.length*sz*0.62;
+    if(span<lblW+6){
+      // แคบ → ออกนอก
+      s+=SL(x2,y,x2+8,y,c,.3);
+      s+=ST(x2+10,y+3,lbl,7,'start',c);
+    } else {
+      s+=ST(mid,y-3*sign,lbl,sz,'middle',c);
+    }
+  });
+  return s;
+}
+
+/* ── LEADER LINE + NOTE (ตามมาตรฐาน section 7.2, 7.3.5)
+   หัวลูกศรจรดที่ "ขอบของรู" ไม่ใช่จุดศูนย์กลาง
+   เส้นเอียง 30-60° จาก horizontal
+   ปลายอีกด้านเป็นเส้นนอนสั้น แล้วเขียน note บน
+── */
+function leaderNote(hx,hy,hRad,noteText,side='left',c=CDIM){
+  // side = 'left' หรือ 'right' → ทิศทาง leader ออก
+  const ANGLE=Math.PI*(side==='left'?150:30)/180; // 150° หรือ 30° จาก +x
+  const LEADER_LEN=22;
+  const HORIZ=18;
+
+  // จุดที่ขอบรู (หัวลูกศรหยุดตรงนี้)
+  const edgeX=hx+Math.cos(ANGLE)*hRad;
+  const edgeY=hy+Math.sin(ANGLE)*hRad;
+
+  // จุดหักมุม (บริเวณที่เส้นเฉียงสิ้นสุด)
+  const kinkX=hx+Math.cos(ANGLE)*(hRad+LEADER_LEN);
+  const kinkY=hy+Math.sin(ANGLE)*(hRad+LEADER_LEN);
+
+  // เส้นนอนสั้น
+  const horizEndX=side==='left'?kinkX-HORIZ:kinkX+HORIZ;
+
+  let s='';
+  // เส้นเฉียง (ลากจาก edge → kink)
+  s+=SL(edgeX,edgeY,kinkX,kinkY,c,.45);
+  // เส้นนอน
+  s+=SL(kinkX,kinkY,horizEndX,kinkY,c,.45);
+  // หัวลูกศรที่ขอบรู
+  s+=ARR(edgeX,edgeY,Math.cos(ANGLE),Math.sin(ANGLE),c);
+  // ข้อความบนเส้นนอน (เหนือ 1.5px)
+  const txtX=(kinkX+horizEndX)/2;
+  s+=ST(txtX,kinkY-2.5,noteText,7.5,'middle',c);
+
+  return s;
+}
+
+/* ── PILL CALLOUT (single) ── */
+function pillCallout(ox,oy,text,hx,hy){
+  const cw=5.6, bh=13, pad=8;
+  const bw=Math.max(text.length*cw+pad*2,55);
+  let s=`<rect x="${r(ox-bw/2)}" y="${r(oy-bh/2)}" width="${r(bw)}" height="${bh}" rx="${bh/2}" fill="white" stroke="${COUT}" stroke-width="0.7"/>`;
+  s+=ST(ox,oy+4,text,7,'middle',COUT);
+  if(hx!==undefined){
+    const ang=Math.atan2(hy-oy,hx-ox);
+    const ex=ox+Math.cos(ang)*(bw/2+1), ey=oy+Math.sin(ang)*(bh/2+1);
+    s+=SL(ex,ey,hx,hy,COUT,.55);
+    s+=SC(hx,hy,2.2,COUT,.5,'#111');
+  }
+  return s;
+}
+
+/* ── COLLISION BOX REGISTRY ── */
+let _cboxes=[];
+// Register a rectangle as occupied (prevents callouts from placing there)
+function blockBox(cx,cy,bw,bh){
+  _cboxes.push([cx-bw/2, cx+bw/2, cy-bh/2, cy+bh/2]);
+}
+// Register a circle as occupied
+function blockCircle(cx,cy,rad){
+  _cboxes.push([cx-rad-2, cx+rad+2, cy-rad-2, cy+rad+2]);
+}
+function hitsBox(ox,oy,bw,bh,M=3){
+  return _cboxes.some(([l,rr,t,b])=>
+    !(ox+bw/2+M<l || ox-bw/2-M>rr || oy+bh/2+M<t || oy-bh/2-M>b));
+}
+
+/* ── RIBBON CALLOUT (multi-hole grouped) ──
+   bracket ครอบกลุ่มรู + pill label กลาง
+   collision-aware: หา ARM offset ที่ไม่ชน
+── */
+function ribbonCallout(x1,x2,y,text,above=true){
+  const mid=(x1+x2)/2;
+  const cw=5.6, bh=13, pad=8;
+  const bw=Math.max(text.length*cw+pad*2,62);
+  const sign=above?-1:1;
+
+  // Find arm length that avoids collision
+  let ARM=20;
+  for(let tries=0;tries<6;tries++){
+    const pillY=y+sign*(ARM+18);
+    if(!hitsBox(mid,pillY,bw,bh)){break;}
+    ARM+=18;
+  }
+
+  const barY=y+sign*ARM;
+  const pillY=barY+sign*18;
+
+  let s='';
+  s+=SL(x1,y,x1,barY,COUT,.55);
+  s+=SL(x2,y,x2,barY,COUT,.55);
+  s+=SL(x1,barY,x2,barY,COUT,.6);
+  s+=SL(mid,barY,mid,pillY+(above?bh/2:-bh/2),COUT,.45);
+  s+=`<rect x="${r(mid-bw/2)}" y="${r(pillY-bh/2)}" width="${r(bw)}" height="${bh}" rx="${bh/2}" fill="white" stroke="${COUT}" stroke-width="0.7"/>`;
+  s+=ST(mid,pillY+4,text,7,'middle',COUT);
+
+  // Register pill box
+  blockBox(mid,pillY,bw,bh);
+  return s;
+}
+
+/* ── SMART GROUPED CALLOUT ──
+   รูในแถว Y เดียวกันที่ห่างกัน < MERGE_PX → ribbon
+   รูอยู่คนเดียว → pill
+── */
+const MERGE_PX=60;
+
+function renderHoleCallouts(holeGroups, above=true){
+  if(!holeGroups.length) return '';
+  let s='';
+  const sorted=[...holeGroups].sort((a,b)=>a.hx-b.hx);
+  const clusters=[];
+  let cur=[sorted[0]];
+  for(let i=1;i<sorted.length;i++){
+    if(sorted[i].hx-cur[cur.length-1].hx<MERGE_PX) cur.push(sorted[i]);
+    else{clusters.push(cur);cur=[sorted[i]];}
+  }
+  clusters.push(cur);
+
+  // Separate SVG: callouts first, then dots on top
+  let dotsSVG='';
+  clusters.forEach(cluster=>{
+    if(cluster.length===1){
+      const {hx,hy,lbl}=cluster[0];
+      s+=placeCalloutSingle(hx,hy,lbl,above);
+      dotsSVG+=SC(hx,hy,2.2,COUT,.5,'#111');
+    } else {
+      const x1=cluster[0].hx, x2=cluster[cluster.length-1].hx;
+      const y=cluster[0].hy;
+      const totalQty=cluster.reduce((sum,h)=>sum+(h.qty||1),0);
+      const dia=cluster[0].dia||18;
+      const allSameDia=cluster.every(h=>h.dia===dia);
+      const lbl=allSameDia
+        ?`${totalQty}-ø ${fmt(dia)} Hole.`
+        :`${totalQty} Holes (see schedule)`;
+      s+=ribbonCallout(x1,x2,y,lbl,above);
+      cluster.forEach(h=>{ dotsSVG+=SC(h.hx,h.hy,2.2,COUT,.5,'#111'); });
+    }
+  });
+  return s+dotsSVG; // dots render after callouts
+}
+
+/* ── SINGLE PILL (collision-aware) ── */
+function placeCalloutSingle(hx,hy,lbl,preferAbove=true){
+  const cw=5.6,bh=14,pad=8;
+  const bw=Math.max(lbl.length*cw+pad*2,55);
+  const M=3;
+  function tryAt(ox,oy){
+    if(!hitsBox(ox,oy,bw,bh,M)){
+      blockBox(ox,oy,bw,bh);
+      return pillCallout(ox,oy,lbl,hx,hy);
+    }
+    return null;
+  }
+  const BASE=22,STEP=16;
+  const oys=preferAbove
+    ?[hy-BASE,hy+BASE,hy-BASE-STEP,hy+BASE+STEP,hy-BASE-STEP*2,hy-BASE-STEP*3]
+    :[hy+BASE,hy-BASE,hy+BASE+STEP,hy-BASE-STEP,hy+BASE+STEP*2,hy+BASE+STEP*3];
+  const oxs=[hx,hx+bw*0.5,hx-bw*0.5,hx+bw,hx-bw];
+  for(const coy of oys)for(const cox of oxs){const res=tryAt(cox,coy);if(res)return res;}
+  const cox=oxs[0],coy=oys[oys.length-1];
+  blockBox(cox,coy,bw,bh);
+  return pillCallout(cox,coy,lbl,hx,hy);
+}
+
+/* Legacy wrapper */
+function placeCallout(hx,hy,lbl,preferAbove=true){
+  return placeCalloutSingle(hx,hy,lbl,preferAbove);
+}
+
+/* ── Z SECTION PROFILE — orientation ตามมาตรฐาน Z Purlin
+   - Web: แนวตั้ง (ox,oy = จุดล่างสุดของ web)
+   - B2 (bottom flange): ยื่นออกขวา (+x), lip พับ**ขึ้น** (−y เข้าหา web)
+   - B1 (top flange):   ยื่นออกซ้าย (−x), lip พับ**ลง** (+y เข้าหา web)
+── */
+function zProfile(ox,oy,H,B1,B2,D,sc,stroke=1.8){
+  const sH=H*sc, sB1=B1*sc, sB2=B2*sc, sD=D*sc;
+  const pts=[
+    [ox-sB1, oy-sH+sD], // top lip end (พับลง = +y เข้าหา web)
+    [ox-sB1, oy-sH   ], // top flange outer tip
+    [ox,     oy-sH   ], // web top
+    [ox,     oy      ], // web bottom
+    [ox+sB2, oy      ], // bottom flange outer tip
+    [ox+sB2, oy-sD   ], // bottom lip end (พับขึ้น = −y เข้าหา web)
+  ];
+  return`<polyline points="${pts.map(([x,y])=>`${r(x)},${r(y)}`).join(' ')}" stroke="${COUT}" stroke-width="${stroke}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+/* ── CROSS SECTION VIEW
+   sec_cx, sec_cy = web bottom junction (ox,oy)
+   B1 ยื่นซ้าย (top flange), B2 ยื่นขวา (bot flange)
+   WEB holes: on web centerline
+   TOP holes: on B1 (top flange) midpoint
+   BOT holes: on B2 (bot flange) midpoint
+── */
+function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
+  let s='';
+  const sH=H*sc, sB1=B1*sc, sB2=B2*sc;
+
+  // Profile
+  s+=zProfile(sec_cx,sec_cy,H,B1,B2,D,sc,1.6);
+
+  // Centerline (แนวนอนกลาง web)
+  const midWeb=sec_cy-sH/2;
+  s+=SL(sec_cx-sB1-8, midWeb, sec_cx+sB2+8, midWeb,'#888',.4,'8,4');
+
+  // ── WEB HOLES ──
+  const webH=holes.filter(h=>!h.face||h.face==='WEB');
+  const uniqueY=[...new Set(webH.map(h=>h.Y))].sort((a,b)=>a-b);
+  uniqueY.forEach((hy,i)=>{
+    const hole=webH.find(h=>h.Y===hy);
+    const dia=hole?hole.dia:14;
+    const screenY=sec_cy-hy*sc;
+    const hr=Math.max(dia/2*sc,3.5);
+
+    // Draw shape: oval for slot, circle for H3
+    if(hole&&hole.slot){
+      const slotHpx=Math.max(SLOT_DH/2*sc,3.5);
+      const slotWpx=Math.max((hole.slotW||SLOT_WH)/2*sc,5);
+      // Section view: slot นอนขวาง → rx=WH (กว้าง), ry=DH (สูงน้อย)
+      s+=`<ellipse cx="${r(sec_cx)}" cy="${r(screenY)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
+    } else {
+      s+=SC(sec_cx,screenY,hr,COUT,.8,'white');
+    }
+    const CM=3.5;
+    s+=SL(sec_cx-CM,screenY,sec_cx+CM,screenY,'#555',.4,'3,2');
+    s+=SL(sec_cx,screenY-CM,sec_cx,screenY+CM,'#555',.4,'3,2');
+
+    // Y dims — ด้านซ้าย (B1 side)
+    const webLeftEdge=sec_cx-sB1;
+    const dimX=webLeftEdge-20-i*20;
+    s+=DV(dimX, sec_cy-sH, screenY, fmt(H-hy), CDIM, webLeftEdge, 7);
+    if(i===uniqueY.length-1)
+      s+=DV(dimX-20, screenY, sec_cy, fmt(hy), CDIM, webLeftEdge, 7);
+
+    // Leader note with correct label
+    const noteLbl=hole&&hole.slot?`${SLOT_DH}×${SLOT_WH} Slot.`:`Ø${fmt(dia)} Hole.`;
+    s+=leaderNote(sec_cx, screenY, hr, noteLbl, 'right', CDIM);
+  });
+
+  // ── TOP (B1 flange) HOLES ──
+  const topH=holes.filter(h=>h.face==='TOP');
+  topH.forEach((hole,i)=>{
+    const dia=hole.dia||SLOT_DH;
+    const hr=Math.max(dia/2*sc,3.5);
+    const hx=sec_cx-sB1/2;
+    const hy=sec_cy-sH;
+    if(hole.slot){
+      const slotHpx=Math.max(SLOT_DH/2*sc,3.5);
+      const slotWpx=Math.max(SLOT_WH/2*sc,5);
+      s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
+    } else {
+      s+=SC(hx,hy,hr,COUT,.8,'white');
+    }
+    const CM=3.5;
+    s+=SL(hx-CM,hy,hx+CM,hy,'#555',.4,'3,2');
+    s+=SL(hx,hy-CM,hx,hy+CM,'#555',.4,'3,2');
+    const noteText=hole.slot?`${SLOT_DH}×${SLOT_WH} Slot.`:`Ø${fmt(dia)} Hole.`;
+    const edgeY=hy-hr;
+    const kinkY=edgeY-20;
+    s+=SL(hx,edgeY,hx,kinkY,CDIM,.45);
+    s+=SL(hx,kinkY,hx+25,kinkY,CDIM,.45);
+    s+=ARR(hx,edgeY,0,-1,CDIM);
+    s+=ST(hx+26,kinkY+3,noteText,7.5,'start',CDIM);
+  });
+
+  // ── BOT (B2 flange) HOLES ──
+  const botH=holes.filter(h=>h.face==='BOT');
+  botH.forEach((hole,i)=>{
+    const dia=hole.dia||SLOT_DH;
+    const hr=Math.max(dia/2*sc,3.5);
+    const hx=sec_cx+sB2/2;
+    const hy=sec_cy;
+    if(hole.slot){
+      const slotHpx=Math.max(SLOT_DH/2*sc,3.5);
+      const slotWpx=Math.max(SLOT_WH/2*sc,5);
+      s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
+    } else {
+      s+=SC(hx,hy,hr,COUT,.8,'white');
+    }
+    const CM=3.5;
+    s+=SL(hx-CM,hy,hx+CM,hy,'#555',.4,'3,2');
+    s+=SL(hx,hy-CM,hx,hy+CM,'#555',.4,'3,2');
+    const noteText=hole.slot?`${SLOT_DH}×${SLOT_WH} Slot.`:`Ø${fmt(dia)} Hole.`;
+    const edgeY=hy+hr;
+    const kinkY=edgeY+20;
+    s+=SL(hx,edgeY,hx,kinkY,CDIM,.45);
+    s+=SL(hx,kinkY,hx+25,kinkY,CDIM,.45);
+    s+=ARR(hx,edgeY,0,1,CDIM);
+    s+=ST(hx+26,kinkY+3,noteText,7.5,'start',CDIM);
+  });
+
+  // B1 dim (บน, ยื่นซ้าย)
+  s+=DH(sec_cx-sB1, sec_cx, sec_cy-sH-20, fmt(B1), CDIM, sec_cy-sH);
+  // B2 dim (ล่าง, ยื่นขวา)
+  s+=DH(sec_cx, sec_cx+sB2, sec_cy+22, fmt(B2), CDIM, sec_cy);
+
+  // H dim
+  const nYdims=Math.max(uniqueY.length,1);
+  const hDimX=sec_cx-sB1-20-nYdims*20-14;
+  s+=DV(hDimX, sec_cy-sH, sec_cy, `H=${fmt(H)}`, CDIM, sec_cx-sB1, 7.5);
+
+  // Label + scale
+  const lx=sec_cx+(sB2-sB1)/2;
+  s+=ST(lx, sec_cy+42,'SECTION  '+label,8,'middle','#000','bold');
+  s+=ST(lx, sec_cy+53,'SCALE  '+scaleStr,7,'middle','#666');
+
+  return s;
+}
+
+/* ── TITLE BLOCK ── */
+function drawTitleBlock(tb,purlinLabel,tbY){
+  const TX=9, TY=tbY, TW=SW-18, TH=SH-tbY-9;
+
+  let s=SR(TX,TY,TW,TH,'#444',1,'#fff');
+
+  // ── LEFT: Company block ──
+  const CW=190;
+  s+=SR(TX,TY,CW,TH,'#666',.5,'#f5f3ea');
+  s+=SL(TX+12,TY+TH*0.38,TX+CW-12,TY+TH*0.38,'#ccc',.4);
+  s+=SL(TX+CW,TY,TX+CW,TY+TH,'#666',.6);
+  s+=ST(TX+CW/2,TY+TH*0.22,'TMT STEEL',11,'middle','#000','bold');
+  s+=ST(TX+CW/2,TY+TH*0.37,'PUBLIC COMPANY LIMITED',6.5,'middle','#555');
+  s+=ST(TX+CW/2,TY+TH*0.55,'HOLE DRILLING SHOP DRAWING',6.5,'middle','#777');
+  s+=ST(TX+CW/2,TY+TH*0.78,purlinLabel,6.5,'middle','#000','bold');
+
+  // ── MIDDLE: Project / Note / Approval boxes ──
+  const RW=210;
+  const MW=TW-CW-RW;
+  const MX=TX+CW;
+  s+=SL(MX+MW,TY,MX+MW,TY+TH,'#666',.6);
+
+  // Split middle: top 35% = project+note, bottom 65% = 3 approval boxes
+  const mSplit=TH*0.38;
+  s+=SL(MX,TY+mSplit,MX+MW,TY+mSplit,'#ddd',.4);
+
+  // Project
+  s+=ST(MX+8,TY+mSplit*0.28,'PROJECT:',6.5,'start','#999');
+  s+=ST(MX+62,TY+mSplit*0.28,tb.proj,9,'start','#000','bold');
+  // Note
+  s+=ST(MX+8,TY+mSplit*0.65,'NOTE:',6.5,'start','#999');
+  s+=ST(MX+46,TY+mSplit*0.65,tb.note,7.5,'start','#333');
+  s+=ST(MX+8,TY+mSplit*0.88,'ALL DIMENSIONS IN mm / SCALE MAY DIFFER',5.5,'start','#aaa');
+
+  // 3 Approval boxes (equal width)
+  const apvW=Math.floor(MW/3);
+  const apvY=TY+mSplit+1;
+  const apvH=TH-mSplit-2;
+  const apvDefs=[
+    {lbl:'DRAWN BY',       val:tb.by||'—'},
+    {lbl:'TMT APPROVE',    val:''},
+    {lbl:'CUST. APPROVE',  val:''},
+  ];
+  apvDefs.forEach((ap,i)=>{
+    const ax=MX+i*apvW;
+    if(i>0) s+=SL(ax,apvY,ax,apvY+apvH,'#ccc',.4); // divider
+    s+=ST(ax+apvW/2,apvY+apvH*0.22,ap.lbl,5.5,'middle','#888','bold');
+    // Signature line
+    s+=SL(ax+8,apvY+apvH*0.72,ax+apvW-8,apvY+apvH*0.72,'#ccc',.5);
+    if(ap.val) s+=ST(ax+apvW/2,apvY+apvH*0.62,ap.val,9,'middle','#000','bold');
+  });
+
+  // ── RIGHT: Drawing info ──
+  const RX=TX+TW-RW;
+  s+=SR(RX,TY,RW,TH,'#666',.5,'#f5f3ea');
+  const R1=TH*0.44, R2=TH*0.76;
+  s+=SL(RX,TY+R1,RX+RW,TY+R1,'#ccc',.4);
+  s+=SL(RX,TY+R2,RX+RW,TY+R2,'#ccc',.4);
+  s+=SL(RX+RW/2,TY+R1,RX+RW/2,TY+TH,'#ccc',.4);
+
+  s+=ST(RX+RW/2,TY+R1*0.28,'DRAWING NO.',6.5,'middle','#888');
+  s+=ST(RX+RW/2,TY+R1*0.75,tb.no,13,'middle','#000','bold');
+
+  s+=ST(RX+RW/4,TY+R1+(R2-R1)*0.25,'QTY (PCS)',6,'middle','#888');
+  s+=ST(RX+RW/4,TY+R1+(R2-R1)*0.68,`${tb.qty} pcs`,9,'middle','#111','bold');  s+=ST(RX+RW*3/4,TY+R1+(R2-R1)*0.25,'DATE',6,'middle','#888');
+  s+=ST(RX+RW*3/4,TY+R1+(R2-R1)*0.68,tb.date||today(),8,'middle','#111');
+
+  s+=ST(RX+RW/4,TY+R2+(TH-R2)*0.22,'REV.',6,'middle','#888');
+  s+=ST(RX+RW/4,TY+R2+(TH-R2)*0.72,tb.rev,15,'middle','#000','bold');
+  s+=ST(RX+RW*3/4,TY+R2+(TH-R2)*0.22,'SHEET',6,'middle','#888');
+  s+=ST(RX+RW*3/4,TY+R2+(TH-R2)*0.72,'1 / 1',9,'middle','#000');
+
+  return s;
+}
+
+/* ── HOLE TABLE UI ── */
+let _hcnt=0;
+
+function getAutoY(holeType, face){
+  const H=+document.getElementById('pH').value||152;
+  if(face==='WEB') return lookupY(holeType,H);
+  return ''; // flange holes: Y not applicable
+}
+
+function addHole(qty=1,face='WEB',X='',holeType='H1',yOverride=null){
+  _hcnt++;
+  const id='h'+_hcnt;
+  const tr=document.createElement('tr');
+  tr.id=id; tr.className='face-'+face;
+
+  const typeOptions=(f)=>({WEB:['H1','H2','H3'],TOP:['TOP'],BOT:['BOT']}[f]||['H1']);
+  const faceOpts=['WEB','TOP','BOT'].map(f=>`<option${face===f?' selected':''}>${f}</option>`).join('');
+  const typeOpts=typeOptions(face).map(t=>`<option${holeType===t?' selected':''}>${t}</option>`).join('');
+
+  const _H=+document.getElementById('pH').value||152;
+  const _row=getTMTRow(_H);
+  const autoYDisplay=holeType==='H1'?`${fmt(_H/2-_row.GL/2)}/${fmt(_H/2+_row.GL/2)}`
+                    :holeType==='H2'?'B1+B2'
+                    :holeType==='H3'?`${Math.round(_H/2)}`:'auto';
+
+  tr.innerHTML=`
+    <td><input type="number" value="${qty}" min="1" max="50" style="width:100%;text-align:center"></td>
+    <td><select class="face-sel" onchange="onFaceChange(this)">${faceOpts}</select></td>
+    <td><input type="number" value="${X}" placeholder="0" min="0" step="1"></td>
+    <td><select class="type-sel" onchange="onTypeChange(this)">${typeOpts}</select></td>
+    <td class="y-disp" style="font-size:8px;text-align:center;padding:2px;color:#888;white-space:nowrap;overflow:hidden">${autoYDisplay}</td>
+    <td class="dia-cell" style="font-size:8px;text-align:center;padding:2px;color:#888">${lookupDia(holeType)}</td>
+    <td><button class="dbtn" onclick="document.getElementById('${id}').remove()">✕</button></td>`;
+  document.getElementById('htbody').appendChild(tr);
+}
+
+function onFaceChange(sel){
+  const tr=sel.closest('tr');
+  tr.className='face-'+sel.value;
+  const typeSel=tr.querySelector('.type-sel');
+  const opts={WEB:['H1','H2','H3'],TOP:['TOP'],BOT:['BOT']}[sel.value]||['H1'];
+  typeSel.innerHTML=opts.map(t=>`<option>${t}</option>`).join('');
+  onTypeChange(typeSel);
+}
+function onTypeChange(sel){
+  const tr=sel.closest('tr');
+  const H=+document.getElementById('pH').value||152;
+  const row=getTMTRow(H);
+  tr.querySelector('.dia-cell').textContent=lookupDia(sel.value);
+  const yDisp=tr.querySelector('.y-disp');
+  if(yDisp){
+    if(sel.value==='H1') yDisp.textContent=`${fmt(H/2-row.GL/2)}/${fmt(H/2+row.GL/2)}`;
+    else if(sel.value==='H2') yDisp.textContent='B1+B2';
+    else if(sel.value==='H3') yDisp.textContent=`${Math.round(H/2)}`;
+    else yDisp.textContent='auto';
+  }
+}
+
+/* ── VALIDATION ── */
+function validate(L,H,B1,B2,D,t,holes){
+  const e=[];
+  if(!L||L<100) e.push('L < 100');
+  if(!H||H<30)  e.push('H < 30');
+  if(B1<10||B2<10) e.push('B1/B2 < 10');
+  if(t<0.5) e.push('t < 0.5');
+  holes.forEach((h,i)=>{
+    const n=i+1;
+    if(h.X<0||h.X>L) e.push(`รูที่${n}: X นอกช่วง`);
+    if(h.face==='WEB'&&(h.Y<0||h.Y>H)) e.push(`รูที่${n}: Y นอก Web`);
+  });
+  return e;
+}
+function showVal(e){
+  const el=document.getElementById('val-msg');
+  if(!e.length){el.style.display='none';return;}
+  el.style.display='block'; el.innerHTML='⚠ '+e.join('<br>⚠ ');
+}
+
+/* ── GET HOLES — expand Type into actual hole definitions ── */
+function getHoles(){
+  const H=+document.getElementById('pH').value;
+  const result=[];
+  Array.from(document.getElementById('htbody').querySelectorAll('tr')).forEach(tr=>{
+    const inp=tr.querySelectorAll('input,select');
+    const qty=parseInt(inp[0].value)||1;
+    const face=inp[1].value; // used for H2 override only
+    const X=parseFloat(inp[2].value)||0;
+    const holeType=inp[3].value;
+
+    if(holeType==='H1'){
+      // 2 slots on WEB, symmetric about H/2, C-to-C = GL
+      const subs=h1Holes(H);
+      subs.forEach(sub=>{
+        result.push({qty,face:'WEB',X,Y:sub.Y,dia:SLOT_DH,slot:true,slotW:SLOT_WH,
+          holeType:'H1',glSpan:sub.glSpan||null,_xPos:[X]});
+      });
+    } else if(holeType==='H2'){
+      // 1 slot B1 (TOP) + 1 slot B2 (BOT), same X
+      result.push({qty,face:'TOP',X,Y:0,dia:SLOT_DH,slot:true,slotW:SLOT_WH,holeType:'H2',_xPos:[X]});
+      result.push({qty,face:'BOT',X,Y:0,dia:SLOT_DH,slot:true,slotW:SLOT_WH,holeType:'H2',_xPos:[X]});
+    } else if(holeType==='H3'){
+      // 1 circle at web centre
+      result.push({qty,face:'WEB',X,Y:Math.round(H/2),dia:18,slot:false,holeType:'H3',_xPos:[X]});
+    } else {
+      // TOP/BOT manual
+      result.push({qty,face,X,Y:0,dia:SLOT_DH,slot:true,slotW:SLOT_WH,holeType,_xPos:[X]});
+    }
+  });
+  return result;
+}
+
+function expandHoles(holes){
+  return holes.map(h=>({...h,_xPos:[h.X]}));
+}
+
+/* ════════════════════════════════════════════
+   MAIN GENERATE
+════════════════════════════════════════════ */
+function generate(){
+  const L=+document.getElementById('pL').value;
+  const H=+document.getElementById('pH').value;
+  const B1=+document.getElementById('pB1').value;
+  const B2=+document.getElementById('pB2').value;
+  const D=+document.getElementById('pD').value;
+  const t=+document.getElementById('pt').value;
+  const holes=getHoles();
+  const errs=validate(L,H,B1,B2,D,t,holes);
+  showVal(errs); if(errs.length) return;
+  _cboxes=[];
+
+  const tb={
+    proj:document.getElementById('tbProj').value,
+    no:document.getElementById('tbNo').value,
+    rev:document.getElementById('tbRev').value,
+    by:document.getElementById('tbBy').value,
+    qty:document.getElementById('tbQty').value||'1',
+    date:document.getElementById('tbDate').value,
+    note:document.getElementById('tbNote').value
+  };
+  const purlinLabel=`Z-${H}×${B1}×${B2}×${D}×${t}  /  L = ${fmt(L)} mm`;
+
+  /* ══════════════════════════════════════════
+     LAYOUT — A3 Landscape (1190×841)
+     ┌─────────────────────────────────────────┐ MT
+     │  WEB VIEW  (elevation, full width)      │ ~35% height
+     ├─────────────────────────────────────────┤ tvY (top view divider)
+     │  TOP VIEW  (plan view, full width)      │ ~15% height
+     ├──────────────────────┬──────────────────┤ divY
+     │  SECTION A  SECT. B  │  HOLE SCHEDULE   │ ~38%
+     ├──────────────────────┴──────────────────┤ TB_Y
+     │  TITLE BLOCK                            │ ~12%
+     └─────────────────────────────────────────┘
+  ══════════════════════════════════════════ */
+  const ML=58, MR=22, MT=28, MB=95;
+  const TB_Y=SH-MB;
+  const CONTENT_H=TB_Y-MT;
+
+  // Web View zone (35%)
+  const WEB_H=Math.round(CONTENT_H*0.37);
+  const tvY=MT+WEB_H;   // top-view zone starts here
+
+  // Top View zone (13%)
+  const TV_H=Math.round(CONTENT_H*0.13);
+  const divY=tvY+TV_H;  // section zone starts here
+
+  // Section+Schedule zone (remaining ~38%)
+  const SEC_ZONE_H=TB_Y-divY;
+
+  // ── WEB VIEW LAYOUT ──
+  const DPL=58, DPR=22, DPT=44, DPB=32;
+  const eW=(SW-ML-MR)-DPL-DPR;
+  const scX=Math.min(eW/L, 2.2);
+  const webPxW=L*scX;
+  const webInner=WEB_H-DPT-DPB;
+  const webPxH=Math.max(Math.min(H*scX, webInner*0.52), 48);
+  const scY=webPxH/H;
+  const WX=ML+DPL+(eW-webPxW)/2;
+  const WY=MT+DPT+(webInner-webPxH)/2;
+
+  // ── TOP VIEW LAYOUT (plan: shows flange width as rectangles) ──
+  const TV_PAD_T=8, TV_PAD_B=8;
+  const tvInner=TV_H-TV_PAD_T-TV_PAD_B;
+  // Top view web = same X as elevation, height = B1+B2 mapped to tvInner
+  const tvScale=Math.min(tvInner/(B1+B2), scX); // same X scale
+  const tvWebH=(B1+B2)*tvScale;
+  const tvWY=tvY+TV_PAD_T+(tvInner-tvWebH)/2;  // centered vertically in TV zone
+
+  const SXr=r(L/webPxW,2), SYr=r(H/webPxH,2);
+  const distorted=Math.abs(SXr-SYr)>0.06;
+  document.getElementById('slbl').textContent=
+    distorted?`X 1:${SXr}  Y 1:${SYr}`:`Scale 1:${SXr}`;
+
+  const wHoles=holes.filter(h=>h.face==='WEB');
+  const tHoles=holes.filter(h=>h.face==='TOP');
+  const bHoles=holes.filter(h=>h.face==='BOT');
+  const expanded=expandHoles(holes);
+  const hasSecB=(tHoles.length>0||bHoles.length>0);
+
+  // Section layout
+  const SEC_ZONE_W=Math.round((SW-ML-MR)*0.52);
+  const SCH_X=ML+SEC_ZONE_W+10;
+  const SCH_W=SW-MR-SCH_X-4;
+  const numSec=1+(hasSecB?1:0);
+  const secSlot=Math.floor((SEC_ZONE_W-40)/numSec);
+  const secAvailH=SEC_ZONE_H-70;
+  const secSc=Math.min(secAvailH/H, (secSlot-80)/(B1+B2+D*2+10));
+  const secH_px=H*secSc;
+  const uniqueHY_all=[...new Set(wHoles.map(h=>h.Y))].sort((a,b)=>a-b);
+  const yDimSpace=(uniqueHY_all.length+1)*22+24;
+  const secAx=ML+yDimSpace+B1*secSc+10;
+  const secAy=divY+16+Math.round((SEC_ZONE_H-secH_px-70)/2)+secH_px;
+  const secBx=secAx+(B1+B2)*secSc+secSlot*0.52;
+  const secBy=secAy;
+
+  /* ══ SVG BUILD ══ */
+  let s='';
+  s+=`<rect width="${SW}" height="${SH}" fill="#fff"/>`;
+  s+=SR(6,6,SW-12,SH-12,'#333',1);
+  s+=SR(9,9,SW-18,SH-18,'#aaa',.3);
+
+  // Zone dividers
+  s+=SL(ML,tvY, SW-MR,tvY, '#bbb',.5,'5,3');           // web / top view
+  s+=SL(ML,divY,SW-MR,divY,'#bbb',.5,'5,3');            // top view / section
+  s+=SL(SCH_X-5,divY,SCH_X-5,TB_Y,'#bbb',.5,'5,3');    // section / schedule
+
+  // Zone labels (left margin) — ใช้ 2 ST แทน \n
+  const wvMidY=(MT+tvY)/2;
+  s+=ST(ML-10, wvMidY-5,   'WEB', 6.5,'middle','#aaa','normal',`rotate(-90,${ML-10},${wvMidY})`);
+  s+=ST(ML-10, tvY-5+(tvY-MT)*0.15, 'VIEW', 6.5,'middle','#aaa','normal',`rotate(-90,${ML-10},${wvMidY})`);
+  const tvMidY=(tvY+divY)/2;
+  s+=ST(ML-10, tvMidY-4, 'TOP VIEW', 6.5,'middle','#aaa','normal',`rotate(-90,${ML-10},${tvMidY})`);
+
+  /* ════════════════════════════════════════
+     WEB VIEW — dimension ของ WEB face เท่านั้น
+     - Chain dim: X positions ของ WEB holes
+     - Y dim (ซ้าย): ระยะ Y ของ WEB holes
+     - H dim (ซ้าย): ความสูง web
+     - L dim (ล่าง): ความยาวทั้งหมด
+     - Cut line A-A: ณ ตำแหน่ง WEB holes
+     - ไม่แสดง callout/dim ของ TOP/BOT ใน view นี้
+  ════════════════════════════════════════ */
+  s+=ST(WX+webPxW/2, MT+11, 'WEB VIEW (ELEVATION)',9,'middle','#000','bold');
+  s+=ST(WX+webPxW/2, MT+21, purlinLabel,7.5,'middle','#555');
+  if(distorted) s+=ST(WX+webPxW/2,MT+30,'(DIAGRAMMATIC)',6.5,'middle','#c00');
+
+  // Centerline
+  s+=SL(WX-15,WY+webPxH/2,WX+webPxW+15,WY+webPxH/2,CDIM,.4,'10,5');
+
+  // Web outline (rectangle = web face)
+  s+=SR(WX,WY,webPxW,webPxH,COUT,.8);
+  s+=SL(WX,WY,WX+webPxW,WY,COUT,3);                    // top flange (B1) outer edge — เส้นทึบ
+  s+=SL(WX,WY+webPxH,WX+webPxW,WY+webPxH,COUT,3);     // bot flange (B2) outer edge — เส้นทึบ
+  s+=SL(WX,WY-7,WX,WY+webPxH+7,COUT,.9);               // left end
+  s+=SL(WX+webPxW,WY-7,WX+webPxW,WY+webPxH+7,COUT,.9); // right end
+
+  /* ── LIP LINES IN ELEVATION ──
+     Z-purlin: มองจากด้าน web
+     B1 (top flange): lip พับลงเข้าหา web
+       → เห็นขอบ lip จากด้านหน้า = เส้นทึบ
+       → อยู่ที่ Y = WY + D*scY (ต่ำกว่า top edge)
+     B2 (bot flange): lip พับขึ้นเข้าหา web
+       → ซ่อนอยู่ด้านหลัง web = เส้นประ
+       → อยู่ที่ Y = WY + webPxH - D*scY (สูงกว่า bot edge)
+  */
+  const lipPx=D*scY; // lip depth in screen px
+
+  // B1 lip line — เส้นทึบ (visible, อยู่ใต้ top flange)
+  s+=SL(WX,WY+lipPx,WX+webPxW,WY+lipPx,COUT,1.2);
+
+  // B2 lip line — เส้นประ (hidden, อยู่เหนือ bot flange)
+  s+=SL(WX,WY+webPxH-lipPx,WX+webPxW,WY+webPxH-lipPx,COUT,1.0,'5,3');
+
+  // Labels
+  s+=ST(WX-4,WY+2,'← B1',6,'end','#888');
+  s+=ST(WX-4,WY+lipPx+1,'← D (lip)',6,'end','#999');
+  s+=ST(WX-4,WY+webPxH+9,'← B2',6,'end','#888');
+
+  /* Y dims LEFT (WEB holes เท่านั้น) */
+  const uniqueHY=[...new Set(wHoles.map(h=>h.Y))].sort((a,b)=>a-b);
+  uniqueHY.forEach((hy,i)=>{
+    const screenY=WY+(H-hy)*scY;
+    const dimX=WX-20-i*18;
+    s+=DV(dimX, WY, screenY, fmt(H-hy), CDIM, WX, 7);
+    if(i===uniqueHY.length-1)
+      s+=DV(dimX-18, screenY, WY+webPxH, fmt(hy), CDIM, WX, 7);
+  });
+
+  /* H dim LEFT */
+  const hDimElvX=WX-20-(uniqueHY.length)*18-16;
+  s+=DV(hDimElvX, WY, WY+webPxH, `H = ${fmt(H)}`, CDIM, WX, 8);
+
+  /* Cut lines A-A — span ทั้ง web view + top view */
+  function cutLine(hx, lbl, arrowRight=true, spanToTV=false){
+    let cs='';
+    const cy1=WY-DPT+14;
+    const cy2=spanToTV ? tvY+TV_H-4 : WY+webPxH+7;
+    cs+=SL(hx,cy1,hx,cy2,'#333',.65,'8,3,2,3');
+    // Arrow showing view direction
+    const ax=arrowRight?hx+10:hx-10;
+    cs+=`<polygon points="${r(ax)},${r(cy2)} ${r(hx+(arrowRight?3:-3))},${r(cy2-5)} ${r(hx+(arrowRight?3:-3))},${r(cy2+5)}" fill="#333" stroke="none"/>`;
+    // Circle labels at top and bottom
+    const mkCircle=(cx,cy)=>{
+      cs+=SC(cx,cy,7,'#333',.75,'white');
+      cs+=ST(cx,cy+3.5,lbl,7.5,'middle','#000','bold');
+    };
+    mkCircle(hx,cy1-9);
+    mkCircle(hx,cy2+9);
+    return cs;
+  }
+
+  /* WEB holes + A-A cut lines */
+  const webCutXs=[...new Set(wHoles.map(h=>h.X))].sort((a,b)=>a-b);
+
+  // Register collision boxes for holes
+  expanded.filter(h=>h.face==='WEB').forEach(hole=>{
+    const hy=WY+(H-hole.Y)*scY;
+    hole._xPos.forEach(xPos=>{ blockCircle(WX+xPos*scX,hy,8); });
+  });
+
+  // PRE-REGISTER cut circles
+  if(webCutXs.length>0){
+    const cy1=WY-DPT+14-9, cy2=(WY+webPxH+7)+9;
+    webCutXs.forEach(x=>{ blockCircle(WX+x*scX,cy1,9); blockCircle(WX+x*scX,cy2,9); });
+  }
+
+  /* Helper: draw a slot (oval) on SVG
+     cx,cy = centre, slotH = short axis px, slotW = long axis px, vertical=true → tall oval */
+  function drawSlot(cx,cy,slotHpx,slotWpx,vertical=true){
+    const rx=vertical?slotHpx/2:slotWpx/2;
+    const ry=vertical?slotWpx/2:slotHpx/2;
+    return`<ellipse cx="${r(cx)}" cy="${r(cy)}" rx="${r(rx,2)}" ry="${r(ry,2)}" stroke="${COUT}" stroke-width="0.9" fill="white"/>`;
+  }
+
+  // Collect web holes per X position (group H1 pairs together for GL dim)
+  const webHolesByY={};
+  expanded.filter(h=>h.face==='WEB').forEach(hole=>{
+    const hy=WY+(H-hole.Y)*scY;
+    const hx=WX+hole.X*scX;
+    const CROSS=7;
+    // Crosshair
+    s+=SL(hx-CROSS,hy,hx+CROSS,hy,CDIM,.4,'4,2');
+    s+=SL(hx,hy-CROSS,hx,hy+CROSS,CDIM,.4,'4,2');
+    // Shape
+    if(hole.slot){
+      const slotHpx=Math.max(hole.dia*scY*0.5,5);
+      const slotWpx=Math.max((hole.slotW||SLOT_WH)*scY*0.5,8);
+      s+=drawSlot(hx,hy,slotHpx,slotWpx,false); // horizontal slot on web
+    } else {
+      s+=SC(hx,hy,Math.max(hole.dia/2*scY,3.5),COUT,.9,'white');
+    }
+    // Collect for callout grouping
+    const yKey=Math.round(hy);
+    if(!webHolesByY[yKey]) webHolesByY[yKey]=[];
+    const lbl=hole.slot?`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`:`${hole.qty}-Ø${fmt(hole.dia)} Hole.`;
+    webHolesByY[yKey].push({hx,hy,qty:hole.qty,dia:hole.dia,slot:hole.slot,holeType:hole.holeType,lbl});
+  });
+
+  // GL dimension between H1 pairs (group by X, find pairs of H1 slots)
+  const h1ByX={};
+  expanded.filter(h=>h.face==='WEB'&&h.holeType==='H1').forEach(hole=>{
+    if(!h1ByX[hole.X]) h1ByX[hole.X]=[];
+    h1ByX[hole.X].push(WY+(H-hole.Y)*scY);
+  });
+  Object.entries(h1ByX).forEach(([xmm,screenYs])=>{
+    if(screenYs.length===2){
+      const hx=WX+parseFloat(xmm)*scX;
+      const [y1,y2]=[Math.min(...screenYs),Math.max(...screenYs)];
+      const gl=getTMTRow(H).GL;
+      s+=DV(hx+22,y1,y2,`GL=${fmt(gl)}`,CDIM,null,7); // GL dim to the right of hole pair
+    }
+  });
+
+  // Ribbon/pill callouts grouped by Y row
+  Object.values(webHolesByY).forEach(group=>{
+    const above=group[0].hy<(WY+webPxH/2);
+    s+=renderHoleCallouts(group,above);
+  });
+
+  // Cut lines AFTER callouts
+  let cutLineSVG='';
+  if(webCutXs.length>0){
+    cutLineSVG+=cutLine(WX+webCutXs[0]*scX,'A',true,false);
+    if(webCutXs.length>1)
+      cutLineSVG+=cutLine(WX+webCutXs[webCutXs.length-1]*scX,'A',false,false);
+  }
+  s+=cutLineSVG;
+
+  /* Chain dim above web view — WEB X positions ONLY */
+  const webChainMm=[...new Set([0,...wHoles.map(h=>h.X),L])].sort((a,b)=>a-b);
+  const webChainPts=webChainMm.map(x=>({
+    x:WX+x*scX,
+    lbl:x===0?'':fmt(x-(webChainMm[webChainMm.indexOf(x)-1]||0)),
+    _mm:x
+  }));
+  webChainPts[0].lbl='';
+  s+=chainDim(webChainPts, WY-DPT+16, CDIM, WY);
+
+  /* L dim below web view */
+  s+=DH(WX,WX+webPxW, WY+webPxH+DPB-4, `L = ${fmt(L)} mm`, CDIM, WY+webPxH);
+
+  /* ════════════════════════════════════════
+     TOP VIEW (PLAN) — dimension ของ TOP/BOT face
+     - Chain dim: X positions ของ TOP/BOT holes
+     - B1 dim (ซ้าย): ความกว้าง B1 flange
+     - B2 dim (ซ้าย): ความกว้าง B2 flange
+     - Callout TOP/BOT holes
+     - Cut line B-B: ณ ตำแหน่ง TOP/BOT holes
+     - ไม่แสดง dim ของ WEB ใน view นี้
+  ════════════════════════════════════════ */
+  s+=ST(WX+webPxW/2, tvY+4, 'TOP VIEW (PLAN)',8,'middle','#000','bold');
+
+  // Flange rectangles (same X as web view)
+  const tvB1h=B1*tvScale, tvB2h=B2*tvScale;
+  const tvWYb1=tvWY;
+  const tvWYb2=tvWY+tvB1h;
+  const tvWYb2bot=tvWYb2+tvB2h;
+
+  // B1 flange outline
+  s+=SR(WX,tvWYb1,webPxW,tvB1h,COUT,.8);
+  s+=SL(WX,tvWYb1,WX+webPxW,tvWYb1,COUT,1.5);         // outer edge (top)
+  s+=SL(WX,tvWYb2,WX+webPxW,tvWYb2,COUT,.5,'4,3');    // web join (hidden)
+  s+=SL(WX,tvWYb2bot,WX+webPxW,tvWYb2bot,COUT,1.5);   // B2 outer edge (bottom)
+  s+=SL(WX,tvWYb1-4,WX,tvWYb2bot+4,COUT,.8);           // left end
+  s+=SL(WX+webPxW,tvWYb1-4,WX+webPxW,tvWYb2bot+4,COUT,.8); // right end
+
+  /* B1, B2 dims — LEFT side of Top View */
+  s+=DV(WX-16, tvWYb1, tvWYb2,    `B1=${fmt(B1)}`, CDIM, WX, 6.5);
+  s+=DV(WX-34, tvWYb2, tvWYb2bot, `B2=${fmt(B2)}`, CDIM, WX, 6.5);
+
+  /* B-B cut lines — TOP/BOT X positions ONLY */
+  const topCutXs=[...new Set([...tHoles,...bHoles].map(h=>h.X))].sort((a,b)=>a-b);
+
+  // Pre-register B-B circle positions before placing callouts
+  if(topCutXs.length>0){
+    const tvCutY1=tvWYb1-12-9, tvCutY2=tvWYb2bot+12+9;
+    topCutXs.forEach(x=>{
+      blockCircle(WX+x*scX, tvCutY1, 9);
+      blockCircle(WX+x*scX, tvCutY2, 9);
+    });
+  }
+
+  /* TOP face holes — oval slot for H2, circle otherwise */
+  tHoles.forEach((hole)=>{
+    const hx=WX+hole.X*scX;
+    const cy=tvWYb1+tvB1h/2;
+    const hr=Math.max(hole.dia/2*Math.min(scX,tvScale),3);
+    if(hole.slot){
+      const slotHpx=Math.max(SLOT_DH/2*tvScale,4);
+      const slotWpx=Math.max(SLOT_WH/2*tvScale,6);
+      s+=`<ellipse cx="${r(hx)}" cy="${r(cy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
+    } else {
+      s+=SC(hx,cy,hr,COUT,.7,'white');
+    }
+    s+=SL(hx-3,cy,hx+3,cy,'#555',.4,'3,2');
+    s+=SL(hx,cy-3,hx,cy+3,'#555',.4,'3,2');
+    s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,true);
+  });
+
+  /* BOT face holes */
+  bHoles.forEach((hole)=>{
+    const hx=WX+hole.X*scX;
+    const cy=tvWYb2+tvB2h/2;
+    const hr=Math.max(hole.dia/2*Math.min(scX,tvScale),3);
+    if(hole.slot){
+      const slotHpx=Math.max(SLOT_DH/2*tvScale,4);
+      const slotWpx=Math.max(SLOT_WH/2*tvScale,6);
+      s+=`<ellipse cx="${r(hx)}" cy="${r(cy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="#555" stroke-width="0.8" fill="white" stroke-dasharray="3,2"/>`;
+    } else {
+      s+=`<circle cx="${r(hx)}" cy="${r(cy)}" r="${r(hr,2)}" stroke="#555" stroke-width="0.7" fill="white" stroke-dasharray="3,2"/>`;
+    }
+    s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,false);
+  });
+
+  // B-B cut lines rendered AFTER callouts
+  let tvCutSVG='';
+  if(topCutXs.length>0){
+    const tvCutY1=tvWYb1-12, tvCutY2=tvWYb2bot+12;
+    const mkTVCutLine=(hx,lbl,goRight)=>{
+      let cs='';
+      cs+=SL(hx,tvCutY1,hx,tvCutY2,'#333',.65,'8,3,2,3');
+      const ax=goRight?hx+10:hx-10;
+      cs+=`<polygon points="${r(ax)},${r(tvCutY2)} ${r(hx+(goRight?3:-3))},${r(tvCutY2-5)} ${r(hx+(goRight?3:-3))},${r(tvCutY2+5)}" fill="#333" stroke="none"/>`;
+      const mkC=(cx,cy)=>{cs+=SC(cx,cy,7,'#333',.75,'white');cs+=ST(cx,cy+3.5,lbl,7.5,'middle','#000','bold');};
+      mkC(hx,tvCutY1-9);
+      mkC(hx,tvCutY2+9);
+      return cs;
+    };
+    tvCutSVG+=mkTVCutLine(WX+topCutXs[0]*scX,'B',true);
+    if(topCutXs.length>1)
+      tvCutSVG+=mkTVCutLine(WX+topCutXs[topCutXs.length-1]*scX,'B',false);
+  }
+  s+=tvCutSVG;
+
+  /* Chain dim above top view — TOP/BOT X positions ONLY */
+  if(tHoles.length>0||bHoles.length>0){
+    const tvChainMm=[...new Set([0,...[...tHoles,...bHoles].map(h=>h.X),L])].sort((a,b)=>a-b);
+    const tvChainPts=tvChainMm.map(x=>({
+      x:WX+x*scX,
+      lbl:x===0?'':fmt(x-(tvChainMm[tvChainMm.indexOf(x)-1]||0)),
+      _mm:x
+    }));
+    tvChainPts[0].lbl='';
+    // Place chain dim at top of top view zone
+    s+=chainDim(tvChainPts, tvWYb1-20, CDIM, tvWYb1);
+  }
+
+  /* ════════════════════════
+     SECTION VIEWS
+  ════════════════════════ */
+  if(wHoles.length>0||holes.length>0)
+    s+=drawSection(secAx, secAy, H, B1, B2, D, secSc, wHoles, 'A - A', `1:${r(1/secSc,1)}`);
+  if(hasSecB)
+    s+=drawSection(secBx, secBy, H, B1, B2, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`);
+
+  /* ══ HOLE SCHEDULE ══ */
+  const schedHoles=[...holes].sort((a,b)=>{
+    const fo={TOP:0,WEB:1,BOT:2};
+    return (fo[a.face]??1)-(fo[b.face]??1)||a.X-b.X;
+  });
+
+  const schY=divY+6;
+  s+=SR(SCH_X-4,schY,SCH_W+4,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
+  s+=ST(SCH_X-4+(SCH_W+4)/2,schY+10,'HOLE SCHEDULE',8,'middle','#000','bold');
+
+  const scols=[
+    {h:'N',      w:20},
+    {h:'หน้า',   w:22},
+    {h:'X (mm)', w:46},
+    {h:'Type',   w:30},
+    {h:'Y (mm)', w:42},
+    {h:'Shape',  w:0},  // fills remaining
+  ];
+  const fixedW2=scols.slice(0,-1).reduce((a,c)=>a+c.w,0);
+  scols[scols.length-1].w=Math.max(44,SCH_W-fixedW2-4);
+
+  const thY2=schY+14;
+  let cx2=SCH_X-2;
+  scols.forEach(col=>{
+    s+=SR(cx2,thY2,col.w,13,'#aaa',.4,'#e0dbbf');
+    s+=ST(cx2+col.w/2,thY2+9,col.h,6,'middle','#444','bold');
+    cx2+=col.w;
+  });
+
+  schedHoles.forEach((h,i)=>{
+    const ry=thY2+13*(i+1);
+    const bg=i%2===0?'#fafaf7':'#eee8d4';
+    const tag=h.face==='WEB'?'W':h.face==='TOP'?'T':'B';
+    const yDisp=h.face==='WEB'?fmt(h.Y):(h.face==='TOP'?'(B1)':'(B2)');
+    const shapeDisp=h.slot?`${SLOT_DH}×${SLOT_WH}`:`Ø${fmt(h.dia)}`;
+    const vals=[String(i+1),tag,fmt(h.X),h.holeType||'—',yDisp,shapeDisp];
+    cx2=SCH_X-2;
+    scols.forEach((col,j)=>{
+      s+=SR(cx2,ry,col.w,13,'#ddd',.3,bg);
+      s+=ST(cx2+col.w/2,ry+9,vals[j],7,'middle','#111');
+      cx2+=col.w;
+    });
+  });
+  if(!holes.length) s+=ST(SCH_X+SCH_W/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
+
+  /* ══ TITLE BLOCK ══ */
+  s+=drawTitleBlock(tb,purlinLabel,TB_Y);
+
+  document.getElementById('svg-out').innerHTML=s;
+}
+
+/* ── Auto-generate (debounced, after first press) ── */
+let _deb=null,_g0=false;
+document.getElementById('panel').addEventListener('input',()=>{
+  if(!_g0) return;
+  clearTimeout(_deb); _deb=setTimeout(generate,700);
+});
+const _G=generate;
+window.generate=function(){_g0=true;_G();};
+
+/* ── Init ── */
+addHole(1,'WEB',35,'H1');
+addHole(1,'WEB',35,'H2');
+addHole(1,'WEB',5965,'H1');
+addHole(1,'WEB',5965,'H2');
+</script>
+</body>
+</html>
