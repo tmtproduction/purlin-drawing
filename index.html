@@ -3,16 +3,75 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Z Purlin — Hole Drawing v4</title>
+<title>Z Purlin — Hole Drawing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- ═══════════════════════════════════════════
+     FIREBASE SDK
+     แก้ไข firebaseConfig ด้านล่างด้วยค่าจาก Firebase Console
+     Project Settings → Your apps → SDK setup and configuration
+═══════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup,
+         signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, doc, addDoc, getDoc, setDoc,
+         getDocs, query, where, orderBy }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ▼▼▼ วาง config ที่นี่ ▼▼▼
+const firebaseConfig = {
+  apiKey:            "AIzaSyDGmOh_n3q3ae8eeyL6uejrnMq11y67JSc",
+  authDomain:        "tmt-purlin-drawing.firebaseapp.com",
+  projectId:         "tmt-purlin-drawing",
+  storageBucket:     "tmt-purlin-drawing.firebasestorage.app",
+  messagingSenderId: "884818448446",
+  appId:             "1:884818448446:web:d51a032e0d518aa153816f"
+};
+// ▲▲▲ วาง config ที่นี่ ▲▲▲
+
+const app = initializeApp(firebaseConfig);
+window.$auth = getAuth(app);
+window.$db   = getFirestore(app);
+window.$gp   = new GoogleAuthProvider();
+window.$fn   = { signInWithPopup, signOut, onAuthStateChanged,
+                 collection, doc, addDoc, getDoc, setDoc, getDocs,
+                 query, where, orderBy };
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#0d1117;--panel:#161b22;--border:#21262d;--accent:#58a6ff;
   --accent2:#3fb950;--warn:#f85149;--text:#e6edf3;--dim:#8b949e;--inp:#0d1117;
 }
-body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden;margin-top:38px}
+#auth-bar{position:fixed;top:0;left:0;right:0;height:38px;z-index:9999;
+  background:#060a0f;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:8px;
+  font-family:'Rajdhani',sans-serif}
+#auth-bar .logo{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:2px}
+#auth-bar .spacer{flex:1}
+#auth-bar .user-info{font-size:10px;color:var(--dim);font-family:'Share Tech Mono',monospace}
+.ab-btn{padding:4px 12px;border:none;border-radius:3px;cursor:pointer;
+  font-family:'Rajdhani';font-weight:700;font-size:11px;letter-spacing:.8px;
+  text-transform:uppercase;transition:all .15s}
+.ab-primary{background:var(--accent);color:#04080f}
+.ab-primary:hover{background:#79c0ff}
+.ab-ghost{background:transparent;border:1px solid var(--border);color:var(--dim)}
+.ab-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.ab-green{background:var(--accent2);color:#04080f}
+.ab-green:hover{background:#56d364}
+.ab-red{color:#f0a0a0;border-color:var(--border)}
+#load-panel{display:none;position:fixed;top:38px;right:0;width:310px;
+  height:calc(100vh - 38px);background:var(--panel);border-left:1px solid var(--border);
+  z-index:9998;overflow-y:auto;padding:12px;
+  font-family:'Share Tech Mono',monospace}
+.drawing-card{border:1px solid var(--border);border-radius:4px;padding:8px;
+  margin-bottom:6px;background:var(--bg);cursor:pointer;transition:border-color .15s}
+.drawing-card:hover{border-color:var(--accent)}
 #panel{width:330px;min-width:330px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 .ph{padding:12px 14px 10px;background:var(--bg);border-bottom:1px solid var(--border)}
 .ph h1{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:2px;text-transform:uppercase}
@@ -64,6 +123,27 @@ select option{background:var(--panel)}
 </style>
 </head>
 <body>
+
+<!-- ═══ AUTH BAR ═══ -->
+<div id="auth-bar">
+  <span class="logo">TMT PURLIN</span>
+  <span class="spacer"></span>
+  <span class="user-info" id="ab-userinfo"></span>
+  <button class="ab-btn ab-primary" id="ab-signin" onclick="doSignIn()">🔑 Sign in with Google</button>
+  <button class="ab-btn ab-green"   id="ab-save"   onclick="saveDrawing()" style="display:none">💾 Save</button>
+  <button class="ab-btn ab-ghost"   id="ab-load"   onclick="toggleLoadPanel()" style="display:none">📂 My Drawings</button>
+  <a class="ab-btn ab-ghost ab-red" id="ab-admin"  href="admin.html" style="display:none;text-decoration:none">⚙ Admin</a>
+  <button class="ab-btn ab-ghost"   id="ab-signout" onclick="doSignOut()" style="display:none">Sign out</button>
+</div>
+
+<!-- ═══ LOAD PANEL ═══ -->
+<div id="load-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:1px">MY DRAWINGS</span>
+    <button onclick="toggleLoadPanel()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px">✕</button>
+  </div>
+  <div id="drawings-list" style="font-size:10px"></div>
+</div>
 
 <div id="panel">
   <div class="ph">
@@ -150,6 +230,164 @@ select option{background:var(--panel)}
 
 <script>
 'use strict';
+
+/* ═══════════════════════════════════════════════════
+   FIREBASE AUTH + FIRESTORE
+═══════════════════════════════════════════════════ */
+let _fbUser = null;
+let _fbRole = null;
+let _loadOpen = false;
+let _myDocs   = {};
+
+window.addEventListener('load', ()=>{
+  if(!window.$fn){ return; } // Firebase module ยังไม่โหลด
+  window.$fn.onAuthStateChanged(window.$auth, async user=>{
+    _fbUser = user;
+    if(user){
+      await _ensureUserDoc(user);
+      const profile = await _getUserProfile(user.uid);
+      _fbRole = profile?.role || 'engineer';
+      const status = profile?.status || 'pending';
+      _updateAuthUI(user, _fbRole, status);
+    } else {
+      _fbRole = null;
+      _updateAuthUI(null);
+    }
+  });
+});
+
+function _updateAuthUI(user, role, status){
+  const $  = id => document.getElementById(id);
+  const show = id => $(id).style.display = '';
+  const hide = id => $(id).style.display = 'none';
+  if(!user){
+    show('ab-signin');
+    ['ab-save','ab-load','ab-admin','ab-signout'].forEach(hide);
+    $('ab-userinfo').textContent = '';
+    return;
+  }
+  hide('ab-signin');
+  show('ab-load'); show('ab-signout');
+  if(status === 'pending'){
+    $('ab-userinfo').textContent = `⏳ รอ Admin อนุมัติ (${user.email})`;
+    ['ab-save','ab-admin'].forEach(hide);
+    return;
+  }
+  if(status === 'rejected'){
+    $('ab-userinfo').textContent = `❌ ถูกปฏิเสธสิทธิ์ (${user.email})`;
+    ['ab-save','ab-admin'].forEach(hide);
+    return;
+  }
+  $('ab-userinfo').textContent = `${user.displayName}  [${role}]`;
+  if(role !== 'operator') show('ab-save'); else hide('ab-save');
+  if(role === 'admin')    show('ab-admin'); else hide('ab-admin');
+}
+
+async function _ensureUserDoc(user){
+  const {doc, getDoc, setDoc} = window.$fn;
+  const ref  = doc(window.$db, 'users', user.uid);
+  const snap = await getDoc(ref);
+  if(!snap.exists()){
+    await setDoc(ref, {
+      email:       user.email,
+      displayName: user.displayName || user.email,
+      photoURL:    user.photoURL || '',
+      role:        'engineer',  // default role
+      status:      'pending',   // รอ Admin อนุมัติ
+      createdAt:   Date.now()
+    });
+  }
+}
+
+async function _getUserProfile(uid){
+  const {doc, getDoc} = window.$fn;
+  const snap = await getDoc(doc(window.$db,'users',uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+window.doSignIn  = ()=> window.$fn.signInWithPopup(window.$auth, window.$gp).catch(e=>alert(e.message));
+window.doSignOut = ()=> window.$fn.signOut(window.$auth);
+
+/* ─── SAVE ─── */
+window.saveDrawing = async function(){
+  if(!_fbUser){ alert('กรุณา Sign in ก่อน'); return; }
+  if(_fbRole==='operator'){ alert('Role ของคุณไม่มีสิทธิ์บันทึก'); return; }
+  const name = prompt('ตั้งชื่อ Drawing:', document.getElementById('tbNo').value||'Drawing-1');
+  if(!name) return;
+  const payload = {
+    uid: _fbUser.uid, email: _fbUser.email,
+    name, savedAt: Date.now(),
+    inputs:{
+      pL:document.getElementById('pL').value,
+      pH:document.getElementById('pH').value,
+      pt:document.getElementById('pt').value,
+      pB1:document.getElementById('pB1').value,
+      pB2:document.getElementById('pB2').value,
+      pD:document.getElementById('pD').value,
+      tbProj:document.getElementById('tbProj').value,
+      tbNo:document.getElementById('tbNo').value,
+      tbRev:document.getElementById('tbRev').value,
+      tbBy:document.getElementById('tbBy').value,
+      tbQty:document.getElementById('tbQty').value,
+      tbDate:document.getElementById('tbDate').value,
+      tbNote:document.getElementById('tbNote').value,
+    },
+    holes: Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>{
+      const inp=tr.querySelectorAll('input,select');
+      return{qty:inp[0].value, face:inp[1].value, X:inp[2].value, holeType:inp[3].value};
+    })
+  };
+  try{
+    await window.$fn.addDoc(window.$fn.collection(window.$db,'drawings'), payload);
+    alert(`✅ บันทึก "${name}" สำเร็จ`);
+  }catch(e){ alert('❌ '+e.message); }
+};
+
+/* ─── LOAD PANEL ─── */
+window.toggleLoadPanel = function(){
+  _loadOpen = !_loadOpen;
+  document.getElementById('load-panel').style.display = _loadOpen ? '' : 'none';
+  if(_loadOpen) _fetchMyDrawings();
+};
+
+async function _fetchMyDrawings(){
+  if(!_fbUser) return;
+  const list = document.getElementById('drawings-list');
+  list.innerHTML = '<div style="color:var(--dim)">กำลังโหลด...</div>';
+  try{
+    const {collection,query,where,orderBy,getDocs} = window.$fn;
+    const q = query(collection(window.$db,'drawings'),
+      where('uid','==',_fbUser.uid), orderBy('savedAt','desc'));
+    const snap = await getDocs(q);
+    _myDocs = {};
+    if(snap.empty){ list.innerHTML='<div style="color:var(--dim)">ยังไม่มี drawings ที่บันทึกไว้</div>'; return; }
+    list.innerHTML = snap.docs.map(d=>{
+      _myDocs[d.id]=d.data();
+      const dd=d.data(), date=new Date(dd.savedAt).toLocaleDateString('th-TH');
+      return `<div class="drawing-card" onclick="loadDrawing('${d.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="color:var(--text);font-weight:700;font-size:11px">${dd.name}</span>
+          <span style="color:var(--accent);font-size:9px">LOAD →</span>
+        </div>
+        <div style="color:var(--dim);margin-top:3px;font-size:9px;line-height:1.6">
+          Z-${dd.inputs.pH}×${dd.inputs.pB1}×${dd.inputs.pB2} / L=${dd.inputs.pL}<br>
+          ${dd.inputs.tbProj} | ${date}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){ list.innerHTML=`<div style="color:var(--warn)">${e.message}</div>`; }
+}
+
+window.loadDrawing = function(docId){
+  const dd=_myDocs[docId]; if(!dd) return;
+  Object.entries(dd.inputs).forEach(([id,val])=>{
+    const el=document.getElementById(id); if(el) el.value=val;
+  });
+  document.getElementById('htbody').innerHTML=''; _hcnt=0;
+  (dd.holes||[]).forEach(h=>addHole(+h.qty||1,h.face||'WEB',h.X||'',h.holeType||'H1'));
+  toggleLoadPanel();
+  generate();
+};
 
 /* ── PRESETS ── */
 const PRESETS={
