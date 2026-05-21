@@ -165,18 +165,18 @@ select option{background:var(--panel)}
   <span class="logo">TMT PURLIN</span>
   <span class="spacer"></span>
   <span class="user-info" id="ab-userinfo"></span>
-  <button class="ab-btn ab-primary" id="ab-signin" onclick="doSignIn()">🔑 Sign in with Google</button>
-  <button class="ab-btn ab-green"   id="ab-save"   onclick="saveDrawing()" style="display:none">💾 Save</button>
-  <button class="ab-btn ab-ghost"   id="ab-load"   onclick="toggleLoadPanel()" style="display:none">📂 My Drawings</button>
-  <a class="ab-btn ab-ghost ab-red" id="ab-admin"  href="admin.html" style="display:none;text-decoration:none">⚙ Admin</a>
-  <button class="ab-btn ab-ghost"   id="ab-signout" onclick="doSignOut()" style="display:none">Sign out</button>
+  <button class="ab-btn ab-primary"  id="ab-signin"   onclick="doSignIn()" >🔑 Sign in with Google</button>
+  <button class="ab-btn ab-green"    id="ab-save"     onclick="saveProject()"  style="display:none">💾 Save Project</button>
+  <button class="ab-btn ab-ghost"    id="ab-load"     onclick="toggleProjectPanel()" style="display:none">📁 My Projects</button>
+  <a     class="ab-btn ab-ghost ab-red" id="ab-admin" href="admin.html"      style="display:none;text-decoration:none">⚙ Admin</a>
+  <button class="ab-btn ab-ghost"    id="ab-signout"  onclick="doSignOut()"   style="display:none">Sign out</button>
 </div>
 
-<!-- ═══ LOAD PANEL ═══ -->
+<!-- ═══ PROJECT PANEL ═══ -->
 <div id="load-panel">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <span style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:1px">MY DRAWINGS</span>
-    <button onclick="toggleLoadPanel()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px">✕</button>
+    <span style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:1px;font-family:'Share Tech Mono',monospace">MY PROJECTS</span>
+    <button onclick="toggleProjectPanel()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px">✕</button>
   </div>
   <div id="drawings-list" style="font-size:10px"></div>
 </div>
@@ -186,7 +186,7 @@ select option{background:var(--panel)}
   <div id="page-tabs-inner" style="display:flex;gap:3px;align-items:flex-end;height:100%"></div>
   <button class="pg-add" onclick="addPage()" title="เพิ่ม Page ใหม่">＋</button>
   <span class="spacer"></span>
-  <button class="pg-print" onclick="printAll()">🖨 Print All</button>
+  <button class="pg-print" onclick="printAll()">🖨 Print All / PDF</button>
 </div>
 
 <div id="main">
@@ -281,161 +281,164 @@ select option{background:var(--panel)}
 'use strict';
 
 /* ═══════════════════════════════════════════════════
-   FIREBASE AUTH + FIRESTORE
+   FIREBASE AUTH + PROJECT SYSTEM
 ═══════════════════════════════════════════════════ */
-let _fbUser = null;
-let _fbRole = null;
-let _loadOpen = false;
-let _myDocs   = {};
+let _fbUser=null, _fbRole=null, _loadOpen=false, _myDocs={};
 
-window.addEventListener('load', ()=>{
-  if(!window.$fn){ return; } // Firebase module ยังไม่โหลด
-  window.$fn.onAuthStateChanged(window.$auth, async user=>{
-    _fbUser = user;
+window.addEventListener('load',()=>{
+  if(!window.$fn) return;
+  window.$fn.onAuthStateChanged(window.$auth,async user=>{
+    _fbUser=user;
     if(user){
       await _ensureUserDoc(user);
-      const profile = await _getUserProfile(user.uid);
-      _fbRole = profile?.role || 'engineer';
-      const status = profile?.status || 'pending';
-      _updateAuthUI(user, _fbRole, status);
-    } else {
-      _fbRole = null;
-      _updateAuthUI(null);
-    }
+      const profile=await _getUserProfile(user.uid);
+      _fbRole=profile?.role||'engineer';
+      _updateAuthUI(user,_fbRole,profile?.status||'pending');
+    } else { _fbRole=null; _updateAuthUI(null); }
   });
 });
 
-function _updateAuthUI(user, role, status){
-  const $  = id => document.getElementById(id);
-  const show = id => $(id).style.display = '';
-  const hide = id => $(id).style.display = 'none';
+function _updateAuthUI(user,role,status){
+  const show=id=>document.getElementById(id).style.display='';
+  const hide=id=>document.getElementById(id).style.display='none';
   if(!user){
     show('ab-signin');
     ['ab-save','ab-load','ab-admin','ab-signout'].forEach(hide);
-    $('ab-userinfo').textContent = '';
-    return;
+    document.getElementById('ab-userinfo').textContent=''; return;
   }
-  hide('ab-signin');
-  show('ab-load'); show('ab-signout');
-  if(status === 'pending'){
-    $('ab-userinfo').textContent = `⏳ รอ Admin อนุมัติ (${user.email})`;
-    ['ab-save','ab-admin'].forEach(hide);
-    return;
+  hide('ab-signin'); show('ab-load'); show('ab-signout');
+  if(status==='pending'){
+    document.getElementById('ab-userinfo').textContent=`⏳ รอ Admin อนุมัติ (${user.email})`;
+    ['ab-save','ab-admin'].forEach(hide); return;
   }
-  if(status === 'rejected'){
-    $('ab-userinfo').textContent = `❌ ถูกปฏิเสธสิทธิ์ (${user.email})`;
-    ['ab-save','ab-admin'].forEach(hide);
-    return;
+  if(status==='rejected'){
+    document.getElementById('ab-userinfo').textContent=`❌ ถูกปฏิเสธสิทธิ์ (${user.email})`;
+    ['ab-save','ab-admin'].forEach(hide); return;
   }
-  $('ab-userinfo').textContent = `${user.displayName}  [${role}]`;
-  if(role !== 'operator') show('ab-save'); else hide('ab-save');
-  if(role === 'admin')    show('ab-admin'); else hide('ab-admin');
+  document.getElementById('ab-userinfo').textContent=`${user.displayName}  [${role}]`;
+  if(role!=='operator') show('ab-save'); else hide('ab-save');
+  if(role==='admin') show('ab-admin'); else hide('ab-admin');
 }
 
 async function _ensureUserDoc(user){
-  const {doc, getDoc, setDoc} = window.$fn;
-  const ref  = doc(window.$db, 'users', user.uid);
-  const snap = await getDoc(ref);
-  if(!snap.exists()){
-    await setDoc(ref, {
-      email:       user.email,
-      displayName: user.displayName || user.email,
-      photoURL:    user.photoURL || '',
-      role:        'engineer',  // default role
-      status:      'pending',   // รอ Admin อนุมัติ
-      createdAt:   Date.now()
-    });
-  }
+  const {doc,getDoc,setDoc}=window.$fn;
+  const ref=doc(window.$db,'users',user.uid);
+  const snap=await getDoc(ref);
+  if(!snap.exists()) await setDoc(ref,{
+    email:user.email, displayName:user.displayName||user.email,
+    photoURL:user.photoURL||'', role:'engineer', status:'pending', createdAt:Date.now()
+  });
 }
-
 async function _getUserProfile(uid){
-  const {doc, getDoc} = window.$fn;
-  const snap = await getDoc(doc(window.$db,'users',uid));
-  return snap.exists() ? snap.data() : null;
+  const {doc,getDoc}=window.$fn;
+  const snap=await getDoc(doc(window.$db,'users',uid));
+  return snap.exists()?snap.data():null;
 }
 
-window.doSignIn  = ()=> window.$fn.signInWithPopup(window.$auth, window.$gp).catch(e=>alert(e.message));
-window.doSignOut = ()=> window.$fn.signOut(window.$auth);
+window.doSignIn =()=>window.$fn.signInWithPopup(window.$auth,window.$gp).catch(e=>alert(e.message));
+window.doSignOut=()=>window.$fn.signOut(window.$auth);
 
-/* ─── SAVE ─── */
-window.saveDrawing = async function(){
-  if(!_fbUser){ alert('กรุณา Sign in ก่อน'); return; }
-  if(_fbRole==='operator'){ alert('Role ของคุณไม่มีสิทธิ์บันทึก'); return; }
-  const name = prompt('ตั้งชื่อ Drawing:', document.getElementById('tbNo').value||'Drawing-1');
-  if(!name) return;
-  const payload = {
-    uid: _fbUser.uid, email: _fbUser.email,
-    name, savedAt: Date.now(),
-    inputs:{
-      pL:document.getElementById('pL').value,
-      pH:document.getElementById('pH').value,
-      pt:document.getElementById('pt').value,
-      pB1:document.getElementById('pB1').value,
-      pB2:document.getElementById('pB2').value,
-      pD:document.getElementById('pD').value,
-      tbProj:document.getElementById('tbProj').value,
-      tbNo:document.getElementById('tbNo').value,
-      tbRev:document.getElementById('tbRev').value,
-      tbBy:document.getElementById('tbBy').value,
-      tbQty:document.getElementById('tbQty').value,
-      tbDate:document.getElementById('tbDate').value,
-      tbNote:document.getElementById('tbNote').value,
-    },
-    holes: Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>{
-      const inp=tr.querySelectorAll('input,select');
-      return{qty:inp[0].value, face:inp[1].value, X:inp[2].value, holeType:inp[3].value};
-    })
+/* ─── SAVE PROJECT (all sheets) ─── */
+window.saveProject=async function(){
+  if(!_fbUser){alert('กรุณา Sign in ก่อน');return;}
+  if(_fbRole==='operator'){alert('Role ของคุณไม่มีสิทธิ์บันทึก');return;}
+
+  // บันทึก state page ปัจจุบัน
+  _pages[_curPage]={..._pages[_curPage],..._captureState()};
+
+  const projName=prompt('ตั้งชื่อ Project:',
+    document.getElementById('tbProj').value||'Project-1');
+  if(!projName) return;
+
+  const payload={
+    uid:_fbUser.uid, email:_fbUser.email,
+    name:projName, savedAt:Date.now(),
+    sheetCount:_pages.length,
+    sheets:_pages.map((pg,i)=>({
+      sheetNum:i+1,
+      label:pg.label,
+      inputs:pg.inputs||{},
+      holes:pg.holes||[]
+      // ไม่บันทึก svg (generate ใหม่ตอน load)
+    }))
   };
+
   try{
-    await window.$fn.addDoc(window.$fn.collection(window.$db,'drawings'), payload);
-    alert(`✅ บันทึก "${name}" สำเร็จ`);
+    const {collection,addDoc}=window.$fn;
+    await addDoc(collection(window.$db,'projects'),payload);
+    alert(`✅ บันทึก Project "${projName}" (${_pages.length} sheets) สำเร็จ`);
   }catch(e){ alert('❌ '+e.message); }
 };
 
-/* ─── LOAD PANEL ─── */
-window.toggleLoadPanel = function(){
-  _loadOpen = !_loadOpen;
-  document.getElementById('load-panel').style.display = _loadOpen ? '' : 'none';
-  if(_loadOpen) _fetchMyDrawings();
+/* ─── PROJECT PANEL ─── */
+window.toggleProjectPanel=function(){
+  _loadOpen=!_loadOpen;
+  document.getElementById('load-panel').style.display=_loadOpen?'':'none';
+  if(_loadOpen) _fetchProjects();
 };
 
-async function _fetchMyDrawings(){
+async function _fetchProjects(){
   if(!_fbUser) return;
-  const list = document.getElementById('drawings-list');
-  list.innerHTML = '<div style="color:var(--dim)">กำลังโหลด...</div>';
+  const list=document.getElementById('drawings-list');
+  list.innerHTML='<div style="color:var(--dim);font-size:10px">กำลังโหลด...</div>';
   try{
-    const {collection,query,where,orderBy,getDocs} = window.$fn;
-    const q = query(collection(window.$db,'drawings'),
-      where('uid','==',_fbUser.uid), orderBy('savedAt','desc'));
-    const snap = await getDocs(q);
-    _myDocs = {};
-    if(snap.empty){ list.innerHTML='<div style="color:var(--dim)">ยังไม่มี drawings ที่บันทึกไว้</div>'; return; }
-    list.innerHTML = snap.docs.map(d=>{
+    const {collection,query,where,orderBy,getDocs}=window.$fn;
+    let snap;
+    try{
+      const q=query(collection(window.$db,'projects'),
+        where('uid','==',_fbUser.uid),orderBy('savedAt','desc'));
+      snap=await getDocs(q);
+    }catch{
+      const q2=query(collection(window.$db,'projects'),where('uid','==',_fbUser.uid));
+      snap=await getDocs(q2);
+    }
+    _myDocs={};
+    if(snap.empty){
+      list.innerHTML='<div style="color:var(--dim);font-size:10px;padding:10px 0">ยังไม่มี projects</div>';
+      return;
+    }
+    const docs=[...snap.docs].sort((a,b)=>(b.data().savedAt||0)-(a.data().savedAt||0));
+    list.innerHTML=docs.map(d=>{
       _myDocs[d.id]=d.data();
-      const dd=d.data(), date=new Date(dd.savedAt).toLocaleDateString('th-TH');
-      return `<div class="drawing-card" onclick="loadDrawing('${d.id}')">
+      const dd=d.data();
+      const date=new Date(dd.savedAt||0).toLocaleDateString('th-TH');
+      const sheets=dd.sheets||[];
+      return `<div class="drawing-card" onclick="loadProject('${d.id}')">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="color:var(--text);font-weight:700;font-size:11px">${dd.name}</span>
-          <span style="color:var(--accent);font-size:9px">LOAD →</span>
+          <span style="color:var(--accent);font-size:9px">${dd.sheetCount||1} sheets →</span>
         </div>
         <div style="color:var(--dim);margin-top:3px;font-size:9px;line-height:1.6">
-          Z-${dd.inputs.pH}×${dd.inputs.pB1}×${dd.inputs.pB2} / L=${dd.inputs.pL}<br>
-          ${dd.inputs.tbProj} | ${date}
+          ${sheets.slice(0,2).map(s=>`Sheet ${s.sheetNum}: Z-${s.inputs?.pH}×${s.inputs?.pB1} / L=${s.inputs?.pL}`).join('<br>')}
+          ${sheets.length>2?`<span style="color:#555">+${sheets.length-2} more...</span>`:''}
+          <br>${date}
         </div>
       </div>`;
     }).join('');
-  }catch(e){ list.innerHTML=`<div style="color:var(--warn)">${e.message}</div>`; }
+  }catch(e){
+    list.innerHTML=`<div style="color:var(--warn);font-size:10px">${e.message}</div>`;
+  }
 }
 
-window.loadDrawing = function(docId){
+window.loadProject=function(docId){
   const dd=_myDocs[docId]; if(!dd) return;
-  Object.entries(dd.inputs).forEach(([id,val])=>{
-    const el=document.getElementById(id); if(el) el.value=val;
-  });
-  document.getElementById('htbody').innerHTML=''; _hcnt=0;
-  (dd.holes||[]).forEach(h=>addHole(+h.qty||1,h.face||'WEB',h.X||'',h.holeType||'H1'));
-  toggleLoadPanel();
-  generate();
+  const sheets=dd.sheets||[];
+  if(!sheets.length) return;
+
+  // สร้าง _pages จาก sheets ที่บันทึกไว้
+  _pages=sheets.map((sh,i)=>({
+    label:sh.label||`P${i+1}`,
+    inputs:sh.inputs||{},
+    holes:sh.holes||[],
+    svg:''
+  }));
+  _curPage=0; _pgCtr=_pages.length;
+  _applyState(_pages[0]);
+  _g0=false;
+  _renderTabs();
+  toggleProjectPanel();
+  // Generate sheet แรกอัตโนมัติ
+  setTimeout(()=>{ generate(); },100);
 };
 
 /* ── PRESETS ── */
@@ -917,143 +920,140 @@ function placeCallout(hx,hy,lbl,preferAbove=true){
    - B2 (bottom flange): ยื่นออกขวา (+x), lip พับ**ขึ้น** (−y เข้าหา web)
    - B1 (top flange):   ยื่นออกซ้าย (−x), lip พับ**ลง** (+y เข้าหา web)
 ── */
+/* ── Z SECTION PROFILE — ตามรูป reference (rounded corners) ── */
 function zProfile(ox,oy,H,B1,B2,D,sc,stroke=1.8){
   const sH=H*sc, sB1=B1*sc, sB2=B2*sc, sD=D*sc;
-  const pts=[
-    [ox-sB1, oy-sH+sD], // top lip end (พับลง = +y เข้าหา web)
-    [ox-sB1, oy-sH   ], // top flange outer tip
-    [ox,     oy-sH   ], // web top
-    [ox,     oy      ], // web bottom
-    [ox+sB2, oy      ], // bottom flange outer tip
-    [ox+sB2, oy-sD   ], // bottom lip end (พับขึ้น = −y เข้าหา web)
-  ];
-  return`<polyline points="${pts.map(([x,y])=>`${r(x)},${r(y)}`).join(' ')}" stroke="${COUT}" stroke-width="${stroke}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const R=Math.min(4*sc, sD*0.4, sB1*0.15, sB2*0.15);
+  const d=[
+    `M ${r(ox-sB1)} ${r(oy-sH+sD)}`,
+    `L ${r(ox-sB1)} ${r(oy-sH+R)}`,
+    `Q ${r(ox-sB1)} ${r(oy-sH)} ${r(ox-sB1+R)} ${r(oy-sH)}`,
+    `L ${r(ox-R)}   ${r(oy-sH)}`,
+    `Q ${r(ox)}     ${r(oy-sH)} ${r(ox)} ${r(oy-sH+R)}`,
+    `L ${r(ox)}     ${r(oy-R)}`,
+    `Q ${r(ox)} ${r(oy)} ${r(ox+R)} ${r(oy)}`,
+    `L ${r(ox+sB2-R)} ${r(oy)}`,
+    `Q ${r(ox+sB2)} ${r(oy)} ${r(ox+sB2)} ${r(oy-R)}`,
+    `L ${r(ox+sB2)} ${r(oy-sD)}`,
+  ].join(' ');
+  return`<path d="${d}" stroke="${COUT}" stroke-width="${stroke}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-/* ── CROSS SECTION VIEW
-   sec_cx, sec_cy = web bottom junction (ox,oy)
-   B1 ยื่นซ้าย (top flange), B2 ยื่นขวา (bot flange)
-   WEB holes: on web centerline
-   TOP holes: on B1 (top flange) midpoint
-   BOT holes: on B2 (bot flange) midpoint
-── */
 function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
   let s='';
-  const sH=H*sc, sB1=B1*sc, sB2=B2*sc;
-
-  // Profile
+  const sH=H*sc, sB1=B1*sc, sB2=B2*sc, sD=D*sc;
   s+=zProfile(sec_cx,sec_cy,H,B1,B2,D,sc,1.6);
 
-  // Centerline (แนวนอนกลาง web)
-  const midWeb=sec_cy-sH/2;
-  s+=SL(sec_cx-sB1-8, midWeb, sec_cx+sB2+8, midWeb,'#888',.4,'8,4');
+  // Depth dim (ด้านขวา)
+  const depthX=sec_cx+sB2+28;
+  s+=DV(depthX, sec_cy-sH, sec_cy, fmt(H), CDIM, sec_cx+sB2, 7.5);
+  s+=ST(depthX+12,sec_cy-sH/2,'Depth',6.5,'start','#555','normal',`rotate(-90,${r(depthX+12)},${r(sec_cy-sH/2)})`);
 
-  // ── WEB HOLES ──
+  // Top Flange dim
+  s+=DH(sec_cx-sB1, sec_cx, sec_cy-sH-20, fmt(B1), CDIM, sec_cy-sH);
+  s+=ST((sec_cx-sB1+sec_cx)/2,sec_cy-sH-30,'Flange',6.5,'middle','#555');
+
+  // Bottom Flange dim
+  s+=DH(sec_cx, sec_cx+sB2, sec_cy+20, fmt(B2), CDIM, sec_cy);
+  s+=ST((sec_cx+sec_cx+sB2)/2,sec_cy+31,'Bottom Flange',6.5,'middle','#555');
+
+  // Top Lip dim
+  const tlX=sec_cx-sB1-16;
+  s+=DV(tlX, sec_cy-sH, sec_cy-sH+sD, fmt(D), CDIM, sec_cx-sB1, 7);
+  s+=ST(tlX-13,sec_cy-sH+sD/2,'Top Lip',6,'end','#555');
+
+  // Bottom Lip dim
+  const blX=sec_cx+sB2+14;
+  s+=DV(blX, sec_cy-sD, sec_cy, fmt(D), CDIM, sec_cx+sB2, 7);
+  s+=ST(blX+13,sec_cy-sD/2,'Bottom Lip',6,'start','#555');
+
+  // WEB HOLES
   const webH=holes.filter(h=>!h.face||h.face==='WEB');
   const uniqueY=[...new Set(webH.map(h=>h.Y))].sort((a,b)=>a-b);
+
+  // Gauge dim (H1 pair C-to-C)
+  const h1s=webH.filter(h=>h.holeType==='H1');
+  if(h1s.length>=2){
+    const ys=h1s.map(h=>sec_cy-h.Y*sc).sort((a,b)=>a-b);
+    const glX=sec_cx+sB2+52;
+    s+=DV(glX,ys[0],ys[1],`GL=${fmt(getTMTRow(H).GL)}`,CDIM,null,7);
+    s+=ST(glX+12,(ys[0]+ys[1])/2,'Gauge',6.5,'start','#555','normal',`rotate(-90,${r(glX+12)},${r((ys[0]+ys[1])/2)})`);
+  }
+
   uniqueY.forEach((hy,i)=>{
     const hole=webH.find(h=>h.Y===hy);
-    const dia=hole?hole.dia:14;
+    const dia=hole?hole.dia:SLOT_DH;
     const screenY=sec_cy-hy*sc;
+    const isTop=hy>H/2;
     const hr=Math.max(dia/2*sc,3.5);
 
-    // Draw shape: oval for slot, circle for H3
     if(hole&&hole.slot){
-      const slotHpx=Math.max(SLOT_DH/2*sc,3.5);
-      const slotWpx=Math.max((hole.slotW||SLOT_WH)/2*sc,5);
-      // Section view: slot นอนขวาง → rx=WH (กว้าง), ry=DH (สูงน้อย)
-      s+=`<ellipse cx="${r(sec_cx)}" cy="${r(screenY)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
+      const sw=Math.max((hole.slotW||SLOT_WH)/2*sc,5);
+      const sh=Math.max(SLOT_DH/2*sc,3.5);
+      s+=`<ellipse cx="${r(sec_cx)}" cy="${r(screenY)}" rx="${r(sw,2)}" ry="${r(sh,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
     } else {
       s+=SC(sec_cx,screenY,hr,COUT,.8,'white');
     }
-    const CM=3.5;
+    const CM=4;
     s+=SL(sec_cx-CM,screenY,sec_cx+CM,screenY,'#555',.4,'3,2');
     s+=SL(sec_cx,screenY-CM,sec_cx,screenY+CM,'#555',.4,'3,2');
 
-    // Y dims — ด้านซ้าย (B1 side)
-    const webLeftEdge=sec_cx-sB1;
-    const dimX=webLeftEdge-20-i*20;
-    s+=DV(dimX, sec_cy-sH, screenY, fmt(H-hy), CDIM, webLeftEdge, 7);
-    if(i===uniqueY.length-1)
-      s+=DV(dimX-20, screenY, sec_cy, fmt(hy), CDIM, webLeftEdge, 7);
+    // Leader (เอียงออกขวา ขึ้นถ้า top hole, ลงถ้า bottom hole)
+    const ang=isTop?-Math.PI/5:Math.PI/5;
+    const leadLen=28;
+    const ex=sec_cx+Math.cos(ang)*leadLen, ey=screenY+Math.sin(ang)*leadLen;
+    const noteLbl=hole&&hole.slot?`${SLOT_DH}\u00d7${SLOT_WH} Slot.`:`\u00d8${fmt(dia)} Hole.`;
+    const holeName=isTop?'Top Hole':'Bottom Hole';
+    s+=SL(sec_cx,screenY,ex,ey,CDIM,.5);
+    s+=SL(ex,ey,ex+28,ey,CDIM,.5);
+    s+=ARR(sec_cx,screenY,Math.cos(ang),Math.sin(ang),CDIM);
+    s+=ST(ex+30,ey-2,noteLbl,7,'start',CDIM,'bold');
+    s+=ST(ex+30,ey+8,holeName,6,'start','#777');
 
-    // Leader note with correct label
-    const noteLbl=hole&&hole.slot?`${SLOT_DH}×${SLOT_WH} Slot.`:`Ø${fmt(dia)} Hole.`;
-    s+=leaderNote(sec_cx, screenY, hr, noteLbl, 'right', CDIM);
+    // Y dim ด้านซ้าย
+    const webEdge=sec_cx-sB1;
+    const dimX=webEdge-20-i*20;
+    if(isTop) s+=DV(dimX,sec_cy-sH,screenY,fmt(H-hy),CDIM,webEdge,7);
+    else       s+=DV(dimX,screenY,sec_cy,fmt(hy),CDIM,webEdge,7);
   });
 
-  // ── TOP (B1 flange) HOLES ──
-  const topH=holes.filter(h=>h.face==='TOP');
-  topH.forEach((hole,i)=>{
-    const dia=hole.dia||SLOT_DH;
-    const hr=Math.max(dia/2*sc,3.5);
-    const hx=sec_cx-sB1/2;
-    const hy=sec_cy-sH;
-    if(hole.slot){
-      const slotHpx=Math.max(SLOT_DH/2*sc,3.5);
-      const slotWpx=Math.max(SLOT_WH/2*sc,5);
-      s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
-    } else {
-      s+=SC(hx,hy,hr,COUT,.8,'white');
-    }
-    const CM=3.5;
-    s+=SL(hx-CM,hy,hx+CM,hy,'#555',.4,'3,2');
-    s+=SL(hx,hy-CM,hx,hy+CM,'#555',.4,'3,2');
-    const noteText=hole.slot?`${SLOT_DH}×${SLOT_WH} Slot.`:`Ø${fmt(dia)} Hole.`;
-    const edgeY=hy-hr;
-    const kinkY=edgeY-20;
-    s+=SL(hx,edgeY,hx,kinkY,CDIM,.45);
-    s+=SL(hx,kinkY,hx+25,kinkY,CDIM,.45);
-    s+=ARR(hx,edgeY,0,-1,CDIM);
-    s+=ST(hx+26,kinkY+3,noteText,7.5,'start',CDIM);
+  // TOP flange holes
+  holes.filter(h=>h.face==='TOP').forEach(hole=>{
+    const hx=sec_cx-sB1/2, hy=sec_cy-sH;
+    const sw=Math.max(SLOT_WH/2*sc,5), sh=Math.max(SLOT_DH/2*sc,3.5);
+    s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(sw,2)}" ry="${r(sh,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
+    s+=SL(hx-4,hy,hx+4,hy,'#555',.4,'3,2'); s+=SL(hx,hy-4,hx,hy+4,'#555',.4,'3,2');
+    const ky=hy-28;
+    s+=SL(hx,hy-sh,hx,ky,CDIM,.45); s+=SL(hx,ky,hx-28,ky,CDIM,.45);
+    s+=ARR(hx,hy-sh,0,-1,CDIM);
+    s+=ST(hx-30,ky+3,`${SLOT_DH}\u00d7${SLOT_WH} Slot.`,7,'end',CDIM,'bold');
   });
 
-  // ── BOT (B2 flange) HOLES ──
-  const botH=holes.filter(h=>h.face==='BOT');
-  botH.forEach((hole,i)=>{
-    const dia=hole.dia||SLOT_DH;
-    const hr=Math.max(dia/2*sc,3.5);
-    const hx=sec_cx+sB2/2;
-    const hy=sec_cy;
-    if(hole.slot){
-      const slotHpx=Math.max(SLOT_DH/2*sc,3.5);
-      const slotWpx=Math.max(SLOT_WH/2*sc,5);
-      s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
-    } else {
-      s+=SC(hx,hy,hr,COUT,.8,'white');
-    }
-    const CM=3.5;
-    s+=SL(hx-CM,hy,hx+CM,hy,'#555',.4,'3,2');
-    s+=SL(hx,hy-CM,hx,hy+CM,'#555',.4,'3,2');
-    const noteText=hole.slot?`${SLOT_DH}×${SLOT_WH} Slot.`:`Ø${fmt(dia)} Hole.`;
-    const edgeY=hy+hr;
-    const kinkY=edgeY+20;
-    s+=SL(hx,edgeY,hx,kinkY,CDIM,.45);
-    s+=SL(hx,kinkY,hx+25,kinkY,CDIM,.45);
-    s+=ARR(hx,edgeY,0,1,CDIM);
-    s+=ST(hx+26,kinkY+3,noteText,7.5,'start',CDIM);
+  // BOT flange holes
+  holes.filter(h=>h.face==='BOT').forEach(hole=>{
+    const hx=sec_cx+sB2/2, hy=sec_cy;
+    const sw=Math.max(SLOT_WH/2*sc,5), sh=Math.max(SLOT_DH/2*sc,3.5);
+    s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(sw,2)}" ry="${r(sh,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
+    s+=SL(hx-4,hy,hx+4,hy,'#555',.4,'3,2'); s+=SL(hx,hy-4,hx,hy+4,'#555',.4,'3,2');
+    const ky=hy+28;
+    s+=SL(hx,hy+sh,hx,ky,CDIM,.45); s+=SL(hx,ky,hx+28,ky,CDIM,.45);
+    s+=ARR(hx,hy+sh,0,1,CDIM);
+    s+=ST(hx+30,ky+3,`${SLOT_DH}\u00d7${SLOT_WH} Slot.`,7,'start',CDIM,'bold');
   });
 
-  // B1 dim (บน, ยื่นซ้าย)
-  s+=DH(sec_cx-sB1, sec_cx, sec_cy-sH-20, fmt(B1), CDIM, sec_cy-sH);
-  // B2 dim (ล่าง, ยื่นขวา)
-  s+=DH(sec_cx, sec_cx+sB2, sec_cy+22, fmt(B2), CDIM, sec_cy);
+  // H dim ด้านซ้ายสุด
+  const hDX=sec_cx-sB1-(uniqueY.length+1)*22;
+  s+=DV(hDX,sec_cy-sH,sec_cy,`H=${fmt(H)}`,CDIM,sec_cx-sB1,7.5);
 
-  // H dim
-  const nYdims=Math.max(uniqueY.length,1);
-  const hDimX=sec_cx-sB1-20-nYdims*20-14;
-  s+=DV(hDimX, sec_cy-sH, sec_cy, `H=${fmt(H)}`, CDIM, sec_cx-sB1, 7.5);
-
-  // Label + scale
+  // Label
   const lx=sec_cx+(sB2-sB1)/2;
-  s+=ST(lx, sec_cy+42,'SECTION  '+label,8,'middle','#000','bold');
-  s+=ST(lx, sec_cy+53,'SCALE  '+scaleStr,7,'middle','#666');
-
+  s+=ST(lx,sec_cy+52,'SECTION  '+label,8,'middle','#000','bold');
+  s+=ST(lx,sec_cy+63,'SCALE  '+scaleStr,7,'middle','#666');
   return s;
 }
 
 /* ── TITLE BLOCK ── */
-function drawTitleBlock(tb,purlinLabel,tbY){
+function drawTitleBlock(tb,purlinLabel,tbY,sheetNum=1,totalSheets=1){
   const TX=9, TY=tbY, TW=SW-18, TH=SH-tbY-9;
 
   let s=SR(TX,TY,TW,TH,'#444',1,'#fff');
@@ -1122,7 +1122,7 @@ function drawTitleBlock(tb,purlinLabel,tbY){
   s+=ST(RX+RW/4,TY+R2+(TH-R2)*0.22,'REV.',6,'middle','#888');
   s+=ST(RX+RW/4,TY+R2+(TH-R2)*0.72,tb.rev,15,'middle','#000','bold');
   s+=ST(RX+RW*3/4,TY+R2+(TH-R2)*0.22,'SHEET',6,'middle','#888');
-  s+=ST(RX+RW*3/4,TY+R2+(TH-R2)*0.72,'1 / 1',9,'middle','#000');
+  s+=ST(RX+RW*3/4,TY+R2+(TH-R2)*0.72,`${sheetNum} / ${totalSheets}`,9,'middle','#000');
 
   return s;
 }
@@ -1687,7 +1687,7 @@ function generate(){
   if(!holes.length) s+=ST(SCH_X+SCH_W/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
 
   /* ══ TITLE BLOCK ══ */
-  s+=drawTitleBlock(tb,purlinLabel,TB_Y);
+  s+=drawTitleBlock(tb,purlinLabel,TB_Y, _curPage+1, _pages.length);
 
   document.getElementById('svg-out').innerHTML=s;
   // บันทึก SVG ลง page ปัจจุบัน + อัปเดต tab indicator
@@ -1777,20 +1777,34 @@ window.deletePage=function(idx){
 };
 
 window.printAll=function(){
-  // 1. บันทึก + generate page ปัจจุบัน
+  // บันทึก state page ปัจจุบัน + generate
   _pages[_curPage]={..._pages[_curPage],..._captureState()};
   generate();
   _pages[_curPage].svg=document.getElementById('svg-out').innerHTML;
 
-  // 2. กรองเฉพาะ page ที่ generate แล้ว (ไม่มี placeholder)
   const PLACEHOLDER='กรอกข้อมูล';
-  const pagesToPrint=_pages.filter(pg=>pg.svg && !pg.svg.includes(PLACEHOLDER));
-  if(!pagesToPrint.length){
-    alert('กรุณากด ▶ สร้าง Drawing ก่อน');
-    return;
-  }
+  // Generate ทุก page ที่ยังไม่มี svg
+  const totalSheets=_pages.length;
+  _pages.forEach((pg,i)=>{
+    if(!pg.svg||pg.svg.includes(PLACEHOLDER)){
+      // Apply state แล้ว generate ชั่วคราว
+      const saved=_captureState();
+      _applyState(pg);
+      _curPage=i; // ต้องตั้งก่อน generate เพื่อให้ sheet number ถูกต้อง
+      generate();
+      _pages[i].svg=document.getElementById('svg-out').innerHTML;
+      _applyState(saved);
+      _curPage=i;
+    }
+  });
+  // คืนค่า state เดิม
+  const origPage=_curPage;
+  _applyState(_pages[origPage]);
+  _curPage=origPage;
 
-  // 3. สร้าง HTML ใน #print-all
+  const pagesToPrint=_pages.filter(pg=>pg.svg&&!pg.svg.includes(PLACEHOLDER));
+  if(!pagesToPrint.length){ alert('กรุณากด ▶ สร้าง Drawing ก่อน'); return; }
+
   const container=document.getElementById('print-all');
   container.innerHTML=pagesToPrint.map(pg=>`
     <div class="print-page">
@@ -1800,12 +1814,7 @@ window.printAll=function(){
       </svg>
     </div>`).join('');
 
-  // 4. รอ browser render ก่อนเปิด print dialog (requestAnimationFrame 2 รอบ)
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(()=>{
-      window.print();
-    });
-  });
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ window.print(); }); });
 };
 
 /* ── Auto-generate (debounced, after first press) ── */
