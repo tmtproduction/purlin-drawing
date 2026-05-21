@@ -355,8 +355,16 @@ async function _getUserProfile(uid){
   return snap.exists()?snap.data():null;
 }
 
-window.doSignIn =()=>window.$fn.signInWithPopup(window.$auth,window.$gp).catch(e=>alert(e.message));
-window.doSignOut=()=>window.$fn.signOut(window.$auth);
+window.doSignIn = () => {
+  if(!window.$fn || !window.$auth){
+    alert('กำลังเชื่อมต่อ Firebase กรุณารอสักครู่แล้วลองใหม่'); return;
+  }
+  window.$fn.signInWithPopup(window.$auth, window.$gp).catch(e=>alert(e.message));
+};
+window.doSignOut = () => {
+  if(!window.$fn) return;
+  window.$fn.signOut(window.$auth);
+};
 
 /* ─── SAVE PROJECT (all sheets) ─── */
 window.saveProject=async function(){
@@ -499,6 +507,10 @@ document.getElementById('preset-bar').addEventListener('click',e=>{
   ['pH','pB1','pB2','pD','pt'].forEach((id,i)=>{
     document.getElementById(id).value=[ps.H,ps.B1,ps.B2,ps.D,ps.t][i];
   });
+  // รีเฟรช Y display ทุกแถว
+  document.querySelectorAll('#htbody .type-sel').forEach(sel=>onTypeChange(sel));
+  // Auto-generate ถ้าเคยกดสร้างแล้ว
+  if(_g0) generate();
 });
 
 /* ── TMT HOLE LOOKUP TABLE (Full catalogue Z12510–Z25024) ──
@@ -590,7 +602,7 @@ function lookupDia(holeType){
   if(holeType==='H3') return 'Ø18';
   return `${SLOT_DH}×${SLOT_WH}`; // H1, H2
 }
-function lookupDiaNum(holeType){ return SLOT_DH; }
+function lookupDiaNum(holeType){ return holeType==='H3' ? 18 : SLOT_DH; }
 function isSlot(holeType){ return holeType!=='H3'; }
 
 /* ── CONSTANTS ── */
@@ -1090,6 +1102,12 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
     s+=`<rect x="${r(sec_cx-t_px)}" y="${r(screenY-rH/2)}" width="${r(t_px)}" height="${r(rH)}" fill="${COUT}" stroke="none" rx="1"/>`;
     // สี่เหลี่ยมฝั่งขวา web ด้วย (เจาะทะลุ)
     s+=`<rect x="${r(sec_cx)}" y="${r(screenY-rH/2)}" width="${r(t_px)}" height="${r(rH)}" fill="white" stroke="${COUT}" stroke-width="0.5" rx="1"/>`;
+
+    // Center mark — จุดกึ่งกลางรู (ใช้สำหรับ snap ใน CAD)
+    const CM=4;
+    s+=SC(sec_cx, screenY, 1.8, '#555', 0.8, '#555');
+    s+=SL(sec_cx-CM, screenY, sec_cx+CM, screenY, '#555', .5, '2,1.5');
+    s+=SL(sec_cx, screenY-CM, sec_cx, screenY+CM, '#555', .5, '2,1.5');
 
     // dim E (top hole) หรือ F (bottom hole)
     const dimLabel=isTop?'E':'F';
@@ -1988,24 +2006,25 @@ window.printAll=function(){
   _pages[_curPage].svg=document.getElementById('svg-out').innerHTML;
 
   const PLACEHOLDER='กรอกข้อมูล';
+  // จับ origPage ก่อน loop (bug fix)
+  const origPage=_curPage;
+
   // Generate ทุก page ที่ยังไม่มี svg
-  const totalSheets=_pages.length;
   _pages.forEach((pg,i)=>{
     if(!pg.svg||pg.svg.includes(PLACEHOLDER)){
-      // Apply state แล้ว generate ชั่วคราว
       const saved=_captureState();
       _applyState(pg);
-      _curPage=i; // ต้องตั้งก่อน generate เพื่อให้ sheet number ถูกต้อง
+      _curPage=i;
       generate();
       _pages[i].svg=document.getElementById('svg-out').innerHTML;
       _applyState(saved);
-      _curPage=i;
     }
   });
-  // คืนค่า state เดิม
-  const origPage=_curPage;
-  _applyState(_pages[origPage]);
+
+  // คืนค่า state + _curPage เดิม
   _curPage=origPage;
+  _applyState(_pages[origPage]);
+  _renderTabs();
 
   const pagesToPrint=_pages.filter(pg=>pg.svg&&!pg.svg.includes(PLACEHOLDER));
   if(!pagesToPrint.length){ alert('กรุณากด ▶ สร้าง Drawing ก่อน'); return; }
