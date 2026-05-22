@@ -212,28 +212,42 @@ select option{background:var(--panel)}
 <div id="main">
 <div id="panel">
   <div class="ph">
-    <h1>Z Purlin Drawing</h1>
+    <h1 id="ph-title">C &amp; Z Purlin Drawing</h1>
     <p>HOLE PATTERN GENERATOR v4 — TMT STEEL</p>
   </div>
   <div class="pb">
-    <div class="slabel">Preset Size</div>
-    <div class="presets" id="preset-bar">
-      <button class="pre-btn" data-p="Z100">Z-100</button>
-      <button class="pre-btn" data-p="Z120">Z-120</button>
-      <button class="pre-btn" data-p="Z150">Z-150</button>
-      <button class="pre-btn" data-p="Z175">Z-175</button>
-      <button class="pre-btn" data-p="Z200">Z-200</button>
-      <button class="pre-btn" data-p="Z250">Z-250</button>
+
+    <!-- ── CATALOG SELECTOR ── -->
+    <div class="slabel">เลือกประเภท &amp; ขนาด</div>
+    <div class="row">
+      <div class="f">
+        <label>ประเภทแป</label>
+        <select id="pType" onchange="onCatType()" style="font-weight:700">
+          <option value="Z">Z Purlin</option>
+          <option value="C">C Purlin</option>
+        </select>
+      </div>
     </div>
-    <div class="slabel">ขนาด Z Purlin</div>
+    <div class="row">
+      <div class="f">
+        <label>ขนาด</label>
+        <select id="pSize" onchange="onCatSize()"></select>
+      </div>
+      <div class="f">
+        <label>ความหนา (mm)</label>
+        <select id="pThick" onchange="onCatThick()"></select>
+      </div>
+    </div>
+
+    <div class="slabel" id="dim-label">ขนาด Purlin</div>
     <div class="row"><div class="f"><label>L — ความยาว (mm)</label><input type="number" id="pL" value="6000" min="100" step="50"></div></div>
     <div class="row">
       <div class="f"><label>H — ความสูง Web (mm)</label><input type="number" id="pH" value="152" min="30"></div>
       <div class="f"><label>t — ความหนา (mm)</label><input type="number" id="pt" value="2.3" step="0.1" min="0.5"></div>
     </div>
     <div class="row">
-      <div class="f"><label>B1 — หน้าแปลนบน (mm)</label><input type="number" id="pB1" value="65" min="10"></div>
-      <div class="f"><label>B2 — หน้าแปลนล่าง (mm)</label><input type="number" id="pB2" value="65" min="10"></div>
+      <div class="f"><label id="lb-B1">B1 — หน้าแปลนบน (mm)</label><input type="number" id="pB1" value="65" min="10"></div>
+      <div class="f" id="row-B2"><label>B2 — หน้าแปลนล่าง (mm)</label><input type="number" id="pB2" value="65" min="10"></div>
     </div>
     <div class="row">
       <div class="f"><label>D — Lip (mm)</label><input type="number" id="pD" value="20" min="0"></div>
@@ -496,69 +510,83 @@ window.loadProject=function(docId){
   setTimeout(()=>generate(),150);
 };
 
-/* ── PRESETS ── */
-const PRESETS={
-  Z100:{H:100,B1:50,B2:50,D:15,t:1.8},Z120:{H:120,B1:55,B2:55,D:16,t:2.0},
-  Z150:{H:150,B1:60,B2:60,D:18,t:2.3},Z175:{H:175,B1:65,B2:65,D:20,t:2.5},
-  Z200:{H:200,B1:70,B2:70,D:20,t:2.5},Z250:{H:250,B1:75,B2:75,D:25,t:3.0},
-};
-document.getElementById('preset-bar').addEventListener('click',e=>{
-  const p=e.target.dataset.p; if(!p||!PRESETS[p]) return;
-  const ps=PRESETS[p];
-  ['pH','pB1','pB2','pD','pt'].forEach((id,i)=>{
-    document.getElementById(id).value=[ps.H,ps.B1,ps.B2,ps.D,ps.t][i];
-  });
-  // รีเฟรช Y display ทุกแถว
-  document.querySelectorAll('#htbody .type-sel').forEach(sel=>onTypeChange(sel));
-  // Auto-generate ถ้าเคยกดสร้างแล้ว
-  if(_g0) generate();
-});
-
-/* ── TMT HOLE LOOKUP TABLE (Full catalogue Z12510–Z25024) ──
-   Key = Width (W) column from catalogue
-   FN  = H1 position from flange top (mm) → Y from web bottom = H - FN
-   FB  = H2 position from flange bottom   → Y from web bottom = FB
-   GL  = Gauge Line from bottom           → Y from web bottom = GL
-   Source: TMT Z Purlin Dimensions table
-── */
-const TMT_HOLES={
-  //  W  : {FN, FB, GL}   (W = web height)
-  127: {FN:49, FB:49, GL:55},
-  152: {FN:61, FB:61, GL:60},
-  203: {FN:74, FB:74, GL:110},
-  254: {FN:74, FB:74, GL:160},
+/* ══════════════════════════════════════════════
+   PURLIN CATALOG — TMT Brochure (C & Z Purlins)
+══════════════════════════════════════════════ */
+const CATALOG={
+  Z:{
+    'Z-125':{W:127,B1:53,B2:49,sizes:{'1.00':{t:1.00,L:15,GL:55,grade:'G550'},'1.20':{t:1.20,L:15,GL:55,grade:'G500'},'1.50':{t:1.50,L:15,GL:55,grade:'G450'},'1.90':{t:1.90,L:16,GL:55,grade:'G450'},'2.40':{t:2.40,L:16,GL:55,grade:'G450'}}},
+    'Z-150':{W:152,B1:65,B2:61,sizes:{'1.20':{t:1.20,L:15,GL:60,grade:'G500'},'1.50':{t:1.50,L:16,GL:60,grade:'G450'},'1.90':{t:1.90,L:17,GL:60,grade:'G450'},'2.40':{t:2.40,L:18,GL:60,grade:'G450'}}},
+    'Z-200':{W:203,B1:79,B2:74,sizes:{'1.50':{t:1.50,L:15,GL:110,grade:'G450'},'1.90':{t:1.90,L:18,GL:110,grade:'G450'},'2.40':{t:2.40,L:20,GL:110,grade:'G450'}}},
+    'Z-250':{W:254,B1:79,B2:74,sizes:{'1.50':{t:1.50,L:18,GL:160,grade:'G450'},'1.90':{t:1.90,L:18,GL:160,grade:'G450'},'2.40':{t:2.40,L:20,GL:160,grade:'G450'}}},
+  },
+  C:{
+    'C-75' :{W:76, B1:42,B2:42,sizes:{'1.00':{t:1.00,L:13,GL:38,grade:'G550'},'1.20':{t:1.20,L:13,GL:38,grade:'G500'},'1.50':{t:1.50,L:13,GL:38,grade:'G450'},'1.90':{t:1.90,L:13,GL:38,grade:'G450'}}},
+    'C-100':{W:102,B1:51,B2:51,sizes:{'1.00':{t:1.00,L:12,GL:40,grade:'G550'},'1.20':{t:1.20,L:12,GL:40,grade:'G500'},'1.50':{t:1.50,L:13,GL:40,grade:'G450'},'1.90':{t:1.90,L:15,GL:40,grade:'G450'},'2.40':{t:2.40,L:15,GL:40,grade:'G450'}}},
+    'C-125':{W:127,B1:51,B2:51,sizes:{'1.00':{t:1.00,L:13,GL:55,grade:'G550'},'1.20':{t:1.20,L:14,GL:55,grade:'G500'},'1.50':{t:1.50,L:15,GL:55,grade:'G450'},'1.90':{t:1.90,L:16,GL:55,grade:'G450'},'2.40':{t:2.40,L:17,GL:55,grade:'G450'}}},
+    'C-150':{W:152,B1:65,B2:65,sizes:{'1.20':{t:1.20,L:16,GL:60,grade:'G500'},'1.50':{t:1.50,L:17,GL:60,grade:'G450'},'1.90':{t:1.90,L:18,GL:60,grade:'G450'},'2.40':{t:2.40,L:19,GL:60,grade:'G450'}}},
+    'C-200':{W:203,B1:76,B2:76,sizes:{'1.50':{t:1.50,L:16,GL:110,grade:'G450'},'1.90':{t:1.90,L:18,GL:110,grade:'G450'},'2.40':{t:2.40,L:20,GL:110,grade:'G450'}}},
+    'C-250':{W:254,B1:76,B2:76,sizes:{'1.90':{t:1.90,L:18,GL:160,grade:'G450'},'2.40':{t:2.40,L:20,GL:160,grade:'G450'}}},
+  }
 };
 
-// Detailed per-purlin-no lookup (for exact match when user enters exact H from catalogue)
-// Purlin No → {W, FN, FB, GL}
-const TMT_PURLIN={
-  'Z12510':{W:127,FN:49,FB:49,GL:55},
-  'Z12512':{W:127,FN:49,FB:49,GL:55},
-  'Z12515':{W:127,FN:49,FB:49,GL:55},
-  'Z12519':{W:127,FN:49,FB:49,GL:55},
-  'Z12524':{W:127,FN:49,FB:49,GL:55},
-  'Z15012':{W:152,FN:61,FB:61,GL:60},
-  'Z15015':{W:152,FN:61,FB:61,GL:60},
-  'Z15019':{W:152,FN:61,FB:61,GL:60},
-  'Z15024':{W:152,FN:61,FB:61,GL:60},
-  'Z20015':{W:203,FN:74,FB:74,GL:110},
-  'Z20019':{W:203,FN:74,FB:74,GL:110},
-  'Z20024':{W:203,FN:74,FB:74,GL:110},
-  'Z25015':{W:254,FN:74,FB:74,GL:160},
-  'Z25019':{W:254,FN:74,FB:74,GL:160},
-  'Z25024':{W:254,FN:74,FB:74,GL:160},
-};
+let _catGL=60, _purlType='Z';
 
-// Slot dimensions (same for H1 and H2)
-const SLOT_DH=18, SLOT_WH=22;  // DH = height (short axis), WH = width (long axis)
-
-/* Get TMT row for given H */
-function getTMTRow(H){
-  if(TMT_HOLES[H]) return TMT_HOLES[H];
-  const keys=Object.keys(TMT_HOLES).map(Number).sort((a,b)=>a-b);
-  const best=keys.reduce((prev,curr)=>Math.abs(curr-H)<Math.abs(prev-H)?curr:prev);
-  return TMT_HOLES[best];
+function onCatType(){
+  _purlType=document.getElementById('pType').value;
+  const isC=_purlType==='C';
+  document.getElementById('ph-title').textContent=_purlType+' Purlin Drawing';
+  document.getElementById('dim-label').textContent='ขนาด '+_purlType+' Purlin';
+  document.getElementById('lb-B1').textContent=isC?'B — หน้าแปลน (mm)':'B1 — หน้าแปลนบน (mm)';
+  document.getElementById('row-B2').style.display=isC?'none':'';
+  _populateSizes();
 }
+function _populateSizes(){
+  const type=document.getElementById('pType').value;
+  const sel=document.getElementById('pSize');
+  const cur=sel.value;
+  sel.innerHTML=Object.keys(CATALOG[type]).map(k=>`<option value="${k}">${k}</option>`).join('');
+  if(CATALOG[type][cur]) sel.value=cur;
+  onCatSize();
+}
+function onCatSize(){
+  const type=document.getElementById('pType').value;
+  const size=document.getElementById('pSize').value;
+  const entry=CATALOG[type]?.[size]; if(!entry) return;
+  const sel=document.getElementById('pThick');
+  const cur=sel.value;
+  sel.innerHTML=Object.keys(entry.sizes).map(k=>`<option value="${k}">${k} mm</option>`).join('');
+  if(entry.sizes[cur]) sel.value=cur;
+  onCatThick();
+}
+function onCatThick(){
+  const type=document.getElementById('pType').value;
+  const size=document.getElementById('pSize').value;
+  const thick=document.getElementById('pThick').value;
+  const entry=CATALOG[type]?.[size]; if(!entry) return;
+  const sz=entry.sizes[thick]; if(!sz) return;
+  _purlType=type; _catGL=sz.GL;
+  document.getElementById('pH').value=entry.W;
+  document.getElementById('pB1').value=entry.B1;
+  document.getElementById('pB2').value=entry.B2;
+  document.getElementById('pD').value=sz.L;
+  document.getElementById('pt').value=sz.t;
+  document.querySelectorAll('#htbody .type-sel').forEach(s=>onTypeChange(s));
+  if(_g0) generate();
+}
+
+// Slot dimensions
+const SLOT_DH=18, SLOT_WH=22;
+
+function getTMTRow(H){
+  if(_catGL) return{GL:_catGL};
+  const map={76:38,102:40,127:55,152:60,203:110,254:160};
+  const keys=Object.keys(map).map(Number).sort((a,b)=>a-b);
+  const best=keys.reduce((p,c)=>Math.abs(c-H)<Math.abs(p-H)?c:p);
+  return{GL:map[best]};
+}
+
+
 
 /* H1: 2 slots on web, symmetric about H/2, C-to-C = GL
    Returns [{Y, face, slot}, {Y, face, slot}]
@@ -1009,16 +1037,41 @@ function placeCalloutSingle(hx,hy,lbl,preferAbove=true,holeType){
   return pillCallout(cx,coy,lbl,hx,hy,holeType);
 }
 
+/* ── C SECTION PROFILE
+   - Web: แนวตั้ง (ox,oy = จุดล่างสุดของ web)
+   - B1 (top flange): ยื่นออกขวา (+x), lip พับลง (+y เข้าหา web)
+   - B2 (bot flange): ยื่นออกขวา (+x), lip พับขึ้น (−y เข้าหา web)
+── */
+function cProfile(ox,oy,H,B1,B2,D,sc,stroke=1.8){
+  const sH=H*sc, sB=B1*sc, sD=D*sc; // C: B1=B2=F
+  const R=Math.min(4*sc, sD*0.4, sB*0.15);
+  const d=[
+    // start: top lip tip
+    `M ${r(ox+sB)} ${r(oy-sH+sD)}`,
+    // up to top-right corner (lip base)
+    `L ${r(ox+sB)} ${r(oy-sH+R)}`,
+    `Q ${r(ox+sB)} ${r(oy-sH)} ${r(ox+sB-R)} ${r(oy-sH)}`,
+    // across top flange to web top-left
+    `L ${r(ox+R)} ${r(oy-sH)}`,
+    `Q ${r(ox)} ${r(oy-sH)} ${r(ox)} ${r(oy-sH+R)}`,
+    // down web
+    `L ${r(ox)} ${r(oy-R)}`,
+    // web bottom-left corner
+    `Q ${r(ox)} ${r(oy)} ${r(ox+R)} ${r(oy)}`,
+    // across bottom flange to bottom-right corner
+    `L ${r(ox+sB-R)} ${r(oy)}`,
+    `Q ${r(ox+sB)} ${r(oy)} ${r(ox+sB)} ${r(oy-R)}`,
+    // up to bottom lip tip
+    `L ${r(ox+sB)} ${r(oy-sD)}`,
+  ].join(' ');
+  return`<path d="${d}" stroke="${COUT}" stroke-width="${stroke}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
 /* Legacy wrapper */
 function placeCallout(hx,hy,lbl,preferAbove=true,holeType){
   return placeCalloutSingle(hx,hy,lbl,preferAbove,holeType);
 }
 
-/* ── Z SECTION PROFILE — orientation ตามมาตรฐาน Z Purlin
-   - Web: แนวตั้ง (ox,oy = จุดล่างสุดของ web)
-   - B2 (bottom flange): ยื่นออกขวา (+x), lip พับ**ขึ้น** (−y เข้าหา web)
-   - B1 (top flange):   ยื่นออกซ้าย (−x), lip พับ**ลง** (+y เข้าหา web)
-── */
 /* ── Z SECTION PROFILE — ตามรูป reference (rounded corners) ── */
 function zProfile(ox,oy,H,B1,B2,D,sc,stroke=1.8){
   const sH=H*sc, sB1=B1*sc, sB2=B2*sc, sD=D*sc;
@@ -1038,13 +1091,42 @@ function zProfile(ox,oy,H,B1,B2,D,sc,stroke=1.8){
   return`<path d="${d}" stroke="${COUT}" stroke-width="${stroke}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=true){
+/* ── C SECTION PROFILE — symmetric C shape
+   - B1=B2=F (both flanges same width, same direction)
+   - Both lips fold inward (down from top, up from bottom)
+   - ox=sec_cx (right edge of web), oy=sec_cy (bottom of web)
+── */
+function cProfile(ox,oy,H,F,D,sc,stroke=1.8){
+  const sH=H*sc, sF=F*sc, sD=D*sc;
+  const R=Math.min(4*sc, sD*0.35, sF*0.15);
+  const d=[
+    // Top lip end → top flange → web top → web bottom → bottom flange → bottom lip end
+    `M ${r(ox-sF+sD)}   ${r(oy-sH)}`,            // top lip tip (points right/inward)
+    `L ${r(ox-sF+R)}    ${r(oy-sH)}`,             // top flange outer
+    `Q ${r(ox-sF)} ${r(oy-sH)} ${r(ox-sF)} ${r(oy-sH+R)}`, // top-left corner
+    `L ${r(ox-sF)}      ${r(oy-sH+sD)}`,          // top lip going down
+    `M ${r(ox-sF)}      ${r(oy-sH)}`,             // reset to top flange-web join
+    `L ${r(ox-R)}       ${r(oy-sH)}`,             // top flange toward web
+    `Q ${r(ox)} ${r(oy-sH)} ${r(ox)} ${r(oy-sH+R)}`, // top-right web corner
+    `L ${r(ox)}         ${r(oy-R)}`,              // web right edge
+    `Q ${r(ox)} ${r(oy)} ${r(ox-R)} ${r(oy)}`,   // bottom-right web corner
+    `L ${r(ox-sF+R)}    ${r(oy)}`,                // bottom flange
+    `Q ${r(ox-sF)} ${r(oy)} ${r(ox-sF)} ${r(oy-R)}`, // bottom-left corner
+    `L ${r(ox-sF)}      ${r(oy-sD)}`,             // bottom lip going up
+    `M ${r(ox-sF+sD)}   ${r(oy)}`,                // bottom lip tip line
+    `L ${r(ox-sF)}      ${r(oy)}`,                // complete bottom flange
+  ].join(' ');
+  return`<path d="${d}" stroke="${COUT}" stroke-width="${stroke}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=true,isC=false){
   let s='';
-  const sH=H*sc, sB1=B1*sc, sB2=B2*sc, sD=D*sc;
+  const sH=H*sc, sB1=B1*sc, sB2=(isC?B1:B2)*sc, sD=D*sc;
   const t_px=Math.max(2.5*sc,3);
 
   // ── Profile ──
-  s+=zProfile(sec_cx,sec_cy,H,B1,B2,D,sc,1.6);
+  s+=isC ? cProfile(sec_cx,sec_cy,H,B1,D,sc,1.6)
+         : zProfile(sec_cx,sec_cy,H,B1,B2,D,sc,1.6);
 
   // ── Z-Z centerline (แนวตั้ง) ──
   const zzTop=sec_cy-sH-sD-20, zzBot=sec_cy+20;
@@ -1442,13 +1524,15 @@ function generate(){
   const B2=+document.getElementById('pB2').value;
   const D=+document.getElementById('pD').value;
   const t=+document.getElementById('pt').value;
+  // ต้อง declare ก่อน validate (ใช้ใน TDZ ถ้าไว้ทีหลัง)
+  const isC=_purlType==='C';
+  const B2eff=isC?B1:B2;
+  if(isC) document.getElementById('pB2').value=B1;
+
   const holes=getHoles();
-  const errs=validate(L,H,B1,B2,D,t,holes);
+  const errs=validate(L,H,B1,B2eff,D,t,holes);
   showVal(errs); if(errs.length) return;
   _cboxes=[];
-  // Pre-register zone boundaries — callouts cannot cross these
-  // Web/Top view divider strip (2px buffer each side)
-  // (registered after tvY is computed, done inline below)
 
   const tb={
     proj:document.getElementById('tbProj').value,
@@ -1459,7 +1543,8 @@ function generate(){
     date:document.getElementById('tbDate').value,
     note:document.getElementById('tbNote').value
   };
-  const purlinLabel=`Z-${H}×${B1}×${B2}×${D}×${t}  /  L = ${fmt(L)} mm`;
+  const b2part=isC?'':`×${B2eff}`;
+  const purlinLabel=`${_purlType}-${H}×${B1}${b2part}×${D}×${t}  /  L = ${fmt(L)} mm`;
 
   /* ══════════════════════════════════════════
      LAYOUT — A3 Landscape (1190×841)
@@ -1505,10 +1590,9 @@ function generate(){
   // ── TOP VIEW LAYOUT (plan: shows flange width as rectangles) ──
   const TV_PAD_T=38, TV_PAD_B=10;
   const tvInner=TV_H-TV_PAD_T-TV_PAD_B;
-  // Top view web = same X as elevation, height = B1+B2 mapped to tvInner
-  const tvScale=Math.min(tvInner/(B1+B2), scX); // same X scale
-  const tvWebH=(B1+B2)*tvScale;
-  const tvWY=tvY+TV_PAD_T+(tvInner-tvWebH)/2;  // centered vertically in TV zone
+  const tvScale=Math.min(tvInner/(B1+B2eff), scX);
+  const tvWebH=(B1+B2eff)*tvScale;
+  const tvWY=tvY+TV_PAD_T+(tvInner-tvWebH)/2;
 
   const SXr=r(L/webPxW,2), SYr=r(H/webPxH,2);
   const distorted=Math.abs(SXr-SYr)>0.06;
@@ -1528,13 +1612,13 @@ function generate(){
   const numSec=1+(hasSecB?1:0);
   const secSlot=Math.floor((SEC_ZONE_W-40)/numSec);
   const secAvailH=SEC_ZONE_H-70;
-  const secSc=Math.min(secAvailH/H, (secSlot-80)/(B1+B2+D*2+10));
+  const secSc=Math.min(secAvailH/H, (secSlot-80)/(B1+B2eff+D*2+10));
   const secH_px=H*secSc;
   const uniqueHY_all=[...new Set(wHoles.map(h=>h.Y))].sort((a,b)=>a-b);
   const yDimSpace=(uniqueHY_all.length+1)*22+24;
   const secAx=ML+yDimSpace+B1*secSc+10;
   const secAy=divY+16+Math.round((SEC_ZONE_H-secH_px-70)/2)+secH_px;
-  const secBx=secAx+(B1+B2)*secSc+secSlot*0.52;
+  const secBx=secAx+(B1+B2eff)*secSc+secSlot*0.52;
   const secBy=secAy;
 
   /* ══ SVG BUILD ══ */
@@ -1601,18 +1685,22 @@ function generate(){
        → ซ่อนอยู่ด้านหลัง web = เส้นประ
        → อยู่ที่ Y = WY + webPxH - D*scY (สูงกว่า bot edge)
   */
-  const lipPx=D*scY; // lip depth in screen px
+  const lipPx=D*scY;
 
-  // B1 lip line — เส้นทึบ (visible, อยู่ใต้ top flange)
-  s+=SL(WX,WY+lipPx,WX+webPxW,WY+lipPx,COUT,1.2);
-
-  // B2 lip line — เส้นประ (hidden, อยู่เหนือ bot flange)
-  s+=SL(WX,WY+webPxH-lipPx,WX+webPxW,WY+webPxH-lipPx,COUT,1.0,'5,3');
-
-  // Labels
-  s+=ST(WX-4,WY+2,'← B1',6,'end','#888');
-  s+=ST(WX-4,WY+lipPx+1,'← D (lip)',6,'end','#999');
-  s+=ST(WX-4,WY+webPxH+9,'← B2',6,'end','#888');
+  if(isC){
+    // C purlin: both lips visible (both fold inward)
+    s+=SL(WX,WY+lipPx,WX+webPxW,WY+lipPx,COUT,1.2);         // top lip (solid)
+    s+=SL(WX,WY+webPxH-lipPx,WX+webPxW,WY+webPxH-lipPx,COUT,1.2); // bot lip (solid)
+    s+=ST(WX-4,WY+2,'← B',6,'end','#888');
+    s+=ST(WX-4,WY+lipPx+1,'← D',6,'end','#999');
+  } else {
+    // Z purlin: B1 lip visible, B2 lip hidden
+    s+=SL(WX,WY+lipPx,WX+webPxW,WY+lipPx,COUT,1.2);
+    s+=SL(WX,WY+webPxH-lipPx,WX+webPxW,WY+webPxH-lipPx,COUT,1.0,'5,3');
+    s+=ST(WX-4,WY+2,'← B1',6,'end','#888');
+    s+=ST(WX-4,WY+lipPx+1,'← D (lip)',6,'end','#999');
+    s+=ST(WX-4,WY+webPxH+9,'← B2',6,'end','#888');
+  }
 
   /* Y dims LEFT (WEB holes เท่านั้น) */
   const uniqueHY=[...new Set(wHoles.map(h=>h.Y))].sort((a,b)=>a-b);
@@ -1882,9 +1970,9 @@ function generate(){
      SECTION VIEWS
   ════════════════════════ */
   if(wHoles.length>0||holes.length>0)
-    s+=drawSection(secAx, secAy, H, B1, B2, D, secSc, wHoles, 'A - A', `1:${r(1/secSc,1)}`, true);
+    s+=drawSection(secAx, secAy, H, B1, B2eff, D, secSc, wHoles, 'A - A', `1:${r(1/secSc,1)}`, true, isC);
   if(hasSecB)
-    s+=drawSection(secBx, secBy, H, B1, B2, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`, false);
+    s+=drawSection(secBx, secBy, H, B1, B2eff, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`, false, isC);
 
   /* ══ HOLE SCHEDULE ══
      เรียงตาม X → ภายใน X เดียวกัน เรียง T,W,B
