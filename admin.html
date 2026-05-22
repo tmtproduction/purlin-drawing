@@ -14,7 +14,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup,
          signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDoc, getDocs,
-         updateDoc, query, orderBy, deleteDoc }
+         updateDoc, query, orderBy, deleteDoc, limit, where }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -570,6 +570,7 @@ tr:hover td{background:rgba(88,166,255,.04)}
       <button class="tab-btn active" data-tab="users"    onclick="switchTab('users')">👥 Users</button>
       <button class="tab-btn"        data-tab="projects" onclick="switchTab('projects')">📁 All Projects</button>
       <button class="tab-btn"        data-tab="drawings" onclick="switchTab('drawings')">📄 Drawings (legacy)</button>
+      <button class="tab-btn"        data-tab="logs"     onclick="switchTab('logs')">📋 Activity Log</button>
     </div>
 
     <!-- USERS PANEL -->
@@ -669,6 +670,110 @@ tr:hover td{background:rgba(88,166,255,.04)}
 
   </div><!-- /container -->
 </div><!-- /admin-app -->
+
+<style>
+.action-chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;letter-spacing:.5px}
+.chip-generate{background:rgba(88,166,255,.15);color:#58a6ff}
+.chip-save    {background:rgba(63,185,80,.15); color:#3fb950}
+.chip-print   {background:rgba(240,160,112,.15);color:#f0a070}
+</style>
+
+<script>
+/* ── Activity Log tab ── (injected after module loads) */
+window._logsLoaded=false;
+const _origSwitch=window.switchTab;
+window.switchTab=function(tab){
+  _origSwitch(tab);
+  if(tab==='logs' && !window._logsLoaded){ window._logsLoaded=true; loadLogs(); }
+};
+
+window.loadLogs=async function(filterAction=''){
+  const tbody=document.getElementById('logs-tbody');
+  tbody.innerHTML=`<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:20px">กำลังโหลด...</td></tr>`;
+  try{
+    const snap=await getDocs(collection(db,'activity_logs'));
+    let docs=[];
+    snap.forEach(d=>docs.push({id:d.id,...d.data()}));
+    docs.sort((a,b)=>(b.ts||0)-(a.ts||0));
+    if(filterAction) docs=docs.filter(d=>d.action===filterAction);
+
+    // stats
+    document.getElementById('log-total').textContent=docs.length;
+    document.getElementById('log-gen').textContent=docs.filter(d=>d.action==='generate').length;
+    document.getElementById('log-save').textContent=docs.filter(d=>d.action==='save').length;
+    document.getElementById('log-print').textContent=docs.filter(d=>d.action==='print').length;
+
+    if(!docs.length){
+      tbody.innerHTML=`<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:20px">ยังไม่มี activity</td></tr>`;
+      return;
+    }
+    tbody.innerHTML=docs.map((d,i)=>{
+      const date=new Date(d.ts||0).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});
+      const chipClass={generate:'chip-generate',save:'chip-save',print:'chip-print'}[d.action]||'';
+      const det=d.details||{};
+      const detStr=[det.type&&det.size?`${det.type} ${det.size}`:'',
+                    det.H?`H=${det.H}`:'', det.L?`L=${det.L}`:'',
+                    det.pages?`${det.pages}p`:'',
+                    det.projName?`"${det.projName}"`:'',
+                    det.drawNo?`No.${det.drawNo}`:'']
+                   .filter(Boolean).join(' · ')||'—';
+      return`<tr>
+        <td style="color:var(--dim);text-align:center">${i+1}</td>
+        <td><span class="action-chip ${chipClass}">${d.action}</span></td>
+        <td>${d.name||d.email||'—'}</td>
+        <td style="font-size:9px;color:var(--dim)">${d.email||'—'}</td>
+        <td><span class="badge badge-${d.role==='admin'?'approved':d.role==='engineer'?'pending':'rejected'}">${d.role||'—'}</span></td>
+        <td style="font-size:9px;color:var(--dim)">${detStr}</td>
+        <td style="font-size:9px">${date}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){
+    tbody.innerHTML=`<tr><td colspan="7" style="color:var(--warn);padding:12px">${e.message}</td></tr>`;
+  }
+};
+</script>
+
+<!-- ACTIVITY LOG PANEL (injected into container) -->
+<script>
+document.querySelector('.container').insertAdjacentHTML('beforeend',`
+<div id="panel-logs" class="tab-panel" style="display:none">
+  <div class="stats" style="margin-bottom:14px">
+    <div class="stat-card"><div class="num" id="log-total">—</div><div class="lbl">Total Events</div></div>
+    <div class="stat-card"><div class="num" style="color:#58a6ff" id="log-gen">—</div><div class="lbl">Generate</div></div>
+    <div class="stat-card"><div class="num" style="color:#3fb950" id="log-save">—</div><div class="lbl">Save</div></div>
+    <div class="stat-card"><div class="num" style="color:#f0a070" id="log-print">—</div><div class="lbl">Print</div></div>
+    <div style="flex:1"></div>
+    <select onchange="loadLogs(this.value)"
+      style="align-self:center;background:var(--bg);color:var(--text);
+      border:1px solid var(--border);padding:4px 8px;border-radius:3px;font-size:11px">
+      <option value="">ทุก action</option>
+      <option value="generate">generate</option>
+      <option value="save">save</option>
+      <option value="print">print</option>
+    </select>
+    <button class="btn btn-ghost" onclick="window._logsLoaded=false;loadLogs()"
+      style="align-self:center;font-size:10px">🔄 Refresh</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:30px;text-align:center">#</th>
+          <th style="width:70px">Action</th>
+          <th>ชื่อ</th>
+          <th>Email</th>
+          <th style="width:70px">Role</th>
+          <th>รายละเอียด</th>
+          <th style="width:110px">เวลา</th>
+        </tr>
+      </thead>
+      <tbody id="logs-tbody">
+        <tr><td colspan="7" style="color:var(--dim);text-align:center;padding:20px">กด tab เพื่อโหลด</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>`);
+</script>
 
 <!-- ═══ DETAIL MODAL ═══ -->
 <div id="detail-modal" onclick="if(event.target===this)closeModal()">
