@@ -443,15 +443,19 @@ async function _logActivity(action, details={}){
   try{
     const {collection,addDoc}=window.$fn;
     await addDoc(collection(window.$db,'activity_logs'),{
-      uid:       _fbUser.uid,
-      email:     _fbUser.email,
-      name:      _fbUser.displayName||_fbUser.email,
-      role:      _fbRole||'engineer',
-      action,                         // 'generate' | 'save' | 'print'
-      details,                        // { purlinType, size, L, pages, ... }
-      ts:        Date.now()
+      uid:   _fbUser.uid,
+      email: _fbUser.email,
+      name:  _fbUser.displayName||_fbUser.email,
+      role:  _fbRole||'engineer',
+      action,
+      details,
+      ts:    Date.now()
     });
-  }catch(e){ console.warn('log error',e); }
+    console.log(`[log] ✅ ${action}`,details);
+  }catch(e){
+    console.error(`[log] ❌ ${action} failed:`, e.code, e.message);
+    // แสดงใน console เพื่อ debug — ถ้า e.code === 'permission-denied' → แก้ Firestore Rules
+  }
 }
 
 window.doSignIn = () => {
