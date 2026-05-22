@@ -223,6 +223,7 @@ select option{background:var(--panel)}
       <div class="f">
         <label>ประเภทแป</label>
         <select id="pType" onchange="onCatType()" style="font-weight:700">
+          <option value="" disabled selected>— เลือกประเภท —</option>
           <option value="Z">Z Purlin</option>
           <option value="C">C Purlin</option>
         </select>
@@ -276,7 +277,7 @@ select option{background:var(--panel)}
     <div class="row"><div class="f"><label>Project</label><input type="text" id="tbProj" value="TMT Steel PCL"></div></div>
     <div class="row">
       <div class="f"><label>Drawing No.</label><input type="text" id="tbNo" value="Z-HDG-001"></div>
-      <div class="f"><label>Rev.</label><input type="text" id="tbRev" value="A"></div>
+      <div class="f"><label>Rev.</label><input type="text" id="tbRev" value="0"></div>
     </div>
     <div class="row">
       <div class="f"><label>Drawn by</label><input type="text" id="tbBy" value=""></div>
@@ -2128,7 +2129,7 @@ let _curPage = 0;
 let _pgCtr = 1;
 
 const PAGE_DEFAULTS = {pL:6000,pH:152,pt:2.3,pB1:65,pB2:65,pD:20,
-  tbProj:'TMT Steel PCL',tbNo:'Z-HDG-001',tbRev:'A',tbBy:'',tbQty:'1',tbDate:'',tbNote:'ทุกขนาดหน่วย mm.'};
+  tbProj:'TMT Steel PCL',tbNo:'Z-HDG-001',tbRev:'0',tbBy:'',tbQty:'1',tbDate:'',tbNote:'ทุกขนาดหน่วย mm.'};
 
 function _captureState(){
   const ids=['pL','pH','pt','pB1','pB2','pD','tbProj','tbNo','tbRev','tbBy','tbQty','tbDate','tbNote'];
