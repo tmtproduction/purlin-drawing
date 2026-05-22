@@ -1037,10 +1037,10 @@ function zProfile(ox,oy,H,B1,B2,D,sc,stroke=1.8){
   return`<path d="${d}" stroke="${COUT}" stroke-width="${stroke}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
+function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=true){
   let s='';
   const sH=H*sc, sB1=B1*sc, sB2=B2*sc, sD=D*sc;
-  const t_px=Math.max(2.5*sc,3);  // web thickness visual (ใช้ขนาดจริง)
+  const t_px=Math.max(2.5*sc,3);
 
   // ── Profile ──
   s+=zProfile(sec_cx,sec_cy,H,B1,B2,D,sc,1.6);
@@ -1059,29 +1059,30 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
   s+=ST(yyR+8,yyY,'Y',8,'middle','#333','bold');
   s+=ST(yyR+18,yyY+8,'Depth',6,'start','#666');
 
-  // ── Dims ──
-  // Top Flange (B1) — เหนือ top flange
-  s+=DH(sec_cx-sB1,sec_cx,sec_cy-sH-22,fmt(B1),CDIM,sec_cy-sH);
-  s+=ST(sec_cx-sB1/2,sec_cy-sH-32,'Top flange',6,'middle','#555');
-
-  // Lt (Top Lip) — ขวาสุด
-  const ltX=sec_cx+8;
-  s+=DV(ltX,sec_cy-sH,sec_cy-sH+sD,`Lt=${fmt(D)}`,CDIM,null,6.5);
-
-  // Bottom Flange (B2) — ใต้ bottom flange
-  s+=DH(sec_cx,sec_cx+sB2,sec_cy+20,fmt(B2),CDIM,sec_cy);
-  s+=ST(sec_cx+sB2/2,sec_cy+31,'Bottom Flange',6,'middle','#555');
-
-  // Lb (Bottom Lip) — ซ้าย B2
-  const lbX=sec_cx-sB2*0.9-16;
-  s+=DV(lbX,sec_cy-sD,sec_cy,`Lb=${fmt(D)}`,CDIM,null,6.5);
-
-  // Depth (H) — ขวา
-  const depthX=sec_cx+sB2+38;
-  s+=DV(depthX,sec_cy-sH,sec_cy,fmt(H),CDIM,sec_cx+sB2,7.5);
-
-  // t (thickness) — เล็กๆ บน web
-  s+=ST(sec_cx+4,sec_cy-sH/2-4,'t',6,'start','#555','bold');
+  // ── Dims — แสดงเฉพาะใน A-A (isPrimary) เพื่อไม่ซ้ำ B-B ──
+  if(isPrimary){
+    // Top Flange (B1)
+    s+=DH(sec_cx-sB1,sec_cx,sec_cy-sH-22,fmt(B1),CDIM,sec_cy-sH);
+    s+=ST(sec_cx-sB1/2,sec_cy-sH-32,'Top flange',6,'middle','#555');
+    // Lt (Top Lip)
+    const ltX=sec_cx+8;
+    s+=DV(ltX,sec_cy-sH,sec_cy-sH+sD,`Lt=${fmt(D)}`,CDIM,null,6.5);
+    // Bottom Flange (B2)
+    s+=DH(sec_cx,sec_cx+sB2,sec_cy+20,fmt(B2),CDIM,sec_cy);
+    s+=ST(sec_cx+sB2/2,sec_cy+31,'Bottom Flange',6,'middle','#555');
+    // Lb (Bottom Lip)
+    const lbX=sec_cx-sB2*0.9-16;
+    s+=DV(lbX,sec_cy-sD,sec_cy,`Lb=${fmt(D)}`,CDIM,null,6.5);
+    // Depth (H)
+    const depthX=sec_cx+sB2+38;
+    s+=DV(depthX,sec_cy-sH,sec_cy,fmt(H),CDIM,sec_cx+sB2,7.5);
+    // t label
+    s+=ST(sec_cx+4,sec_cy-sH/2-4,'t',6,'start','#555','bold');
+    // H dim ด้านซ้ายสุด
+    const uniqueHY_loc=[...new Set(holes.filter(h=>!h.face||h.face==='WEB').map(h=>h.Y))].sort((a,b)=>a-b);
+    const hDX=sec_cx-sB1-(uniqueHY_loc.length+1)*20-12;
+    s+=DV(hDX,sec_cy-sH,sec_cy,`H=${fmt(H)}`,CDIM,sec_cx-sB1,7);
+  }
 
   // ── WEB HOLES — แสดงเป็นสี่เหลี่ยมเล็กบนความหนาของ web ──
   // slot rectangle: กว้าง = WH, สูง = DH วางทับบนผิว web
@@ -1160,10 +1161,6 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr){
     s+=SL(hx,hy+t_px+16,hx+ldLen,hy+t_px+16,CDIM,.45);
     s+=ST(hx+ldLen+2,hy+t_px+19,`${SLOT_DH}×${SLOT_WH} Slot`,8,'start',CDIM);
   });
-
-  // H dim ด้านซ้ายสุด
-  const hDX=sec_cx-sB1-(uniqueY.length+1)*20-12;
-  s+=DV(hDX,sec_cy-sH,sec_cy,`H=${fmt(H)}`,CDIM,sec_cx-sB1,7);
 
   // Label
   const lx=sec_cx+(sB2-sB1)/2;
@@ -1615,10 +1612,12 @@ function generate(){
     hole._xPos.forEach(xPos=>{ blockCircle(WX+xPos*scX,hy,8); });
   });
 
-  // PRE-REGISTER cut circles
+  // PRE-REGISTER cut circles — เฉพาะด้านขวา (rightmost X เท่านั้น)
   if(webCutXs.length>0){
+    const lastWebX=webCutXs[webCutXs.length-1];
     const cy1=WY-DPT+14-9, cy2=(WY+webPxH+7)+9;
-    webCutXs.forEach(x=>{ blockCircle(WX+x*scX,cy1,9); blockCircle(WX+x*scX,cy2,9); });
+    blockCircle(WX+lastWebX*scX, cy1, 9);
+    blockCircle(WX+lastWebX*scX, cy2, 9);
   }
 
   /* Helper: draw a slot (oval) on SVG
@@ -1677,20 +1676,24 @@ function generate(){
     }
   });
 
-  // Ribbon/pill callouts grouped by Y row — above/below แยกตาม web midline
+  // Ribbon/pill callouts — แสดงเฉพาะ rightmost X group ในแต่ละ Y row
   const webMidY=WY+webPxH/2;
+  const maxWebX=webCutXs.length>0 ? webCutXs[webCutXs.length-1] : null;
   Object.values(webHolesByY).forEach(group=>{
-    // ถ้า Y > webMid = รูบน → callout ขึ้นบน; รูล่าง → callout ลงล่าง
-    const above=group[0].hy < webMidY;
-    s+=renderHoleCallouts(group,above);
+    // กรองเฉพาะรูที่ X = rightmost
+    const rightGroup = maxWebX!==null
+      ? group.filter(h => Math.abs(h.hx - (WX+maxWebX*scX)) < 2)
+      : group;
+    if(!rightGroup.length) return;
+    const above=rightGroup[0].hy < webMidY;
+    s+=renderHoleCallouts(rightGroup, above);
   });
 
-  // Cut lines AFTER callouts
+  // Cut lines AFTER callouts — แสดงเฉพาะด้านขวา (lastX เท่านั้น)
   let cutLineSVG='';
   if(webCutXs.length>0){
-    cutLineSVG+=cutLine(WX+webCutXs[0]*scX,'A',true,false);
-    if(webCutXs.length>1)
-      cutLineSVG+=cutLine(WX+webCutXs[webCutXs.length-1]*scX,'A',false,false);
+    const lastWebX=webCutXs[webCutXs.length-1];
+    cutLineSVG+=cutLine(WX+lastWebX*scX,'A',false,false);
   }
   s+=cutLineSVG;
 
@@ -1741,16 +1744,16 @@ function generate(){
   /* B-B cut lines — TOP/BOT X positions ONLY */
   const topCutXs=[...new Set([...tHoles,...bHoles].map(h=>h.X))].sort((a,b)=>a-b);
 
-  // Pre-register B-B circle positions before placing callouts
+  // Pre-register B-B circle — เฉพาะด้านขวา (rightmost X เท่านั้น)
   if(topCutXs.length>0){
+    const lastTopX=topCutXs[topCutXs.length-1];
     const tvCutY1=tvWYb1-12-9, tvCutY2=tvWYb2bot+12+9;
-    topCutXs.forEach(x=>{
-      blockCircle(WX+x*scX, tvCutY1, 9);
-      blockCircle(WX+x*scX, tvCutY2, 9);
-    });
+    blockCircle(WX+lastTopX*scX, tvCutY1, 9);
+    blockCircle(WX+lastTopX*scX, tvCutY2, 9);
   }
 
-  /* TOP face holes — oval slot for H2, circle otherwise */
+  /* TOP face holes — oval slot for H2 — callout เฉพาะ rightmost X */
+  const maxTopX=tHoles.length>0 ? Math.max(...tHoles.map(h=>h.X)) : null;
   tHoles.forEach((hole)=>{
     const hx=WX+hole.X*scX;
     const cy=tvWYb1+tvB1h/2;
@@ -1764,11 +1767,13 @@ function generate(){
     }
     s+=SL(hx-3,cy,hx+3,cy,'#555',.4,'3,2');
     s+=SL(hx,cy-3,hx,cy+3,'#555',.4,'3,2');
-    // TOP face: callout must go ABOVE top view zone (preferAbove=true, constrained)
-    s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,true,'H2');
+    // callout เฉพาะ rightmost X
+    if(maxTopX!==null && hole.X===maxTopX)
+      s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,true,'H2');
   });
 
-  /* BOT face holes */
+  /* BOT face holes — callout เฉพาะ rightmost X */
+  const maxBotX=bHoles.length>0 ? Math.max(...bHoles.map(h=>h.X)) : null;
   bHoles.forEach((hole)=>{
     const hx=WX+hole.X*scX;
     const cy=tvWYb2+tvB2h/2;
@@ -1780,11 +1785,12 @@ function generate(){
     } else {
       s+=`<circle cx="${r(hx)}" cy="${r(cy)}" r="${r(hr,2)}" stroke="#555" stroke-width="0.7" fill="white" stroke-dasharray="3,2"/>`;
     }
-    // BOT face: callout must go BELOW bottom view zone (preferAbove=false)
-    s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,false,'H2');
+    // callout เฉพาะ rightmost X
+    if(maxBotX!==null && hole.X===maxBotX)
+      s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,false,'H2');
   });
 
-  // B-B cut lines rendered AFTER callouts
+  // B-B cut lines — แสดงเฉพาะด้านขวา (lastX เท่านั้น)
   let tvCutSVG='';
   if(topCutXs.length>0){
     const tvCutY1=tvWYb1-12, tvCutY2=tvWYb2bot+12;
@@ -1798,9 +1804,8 @@ function generate(){
       mkC(hx,tvCutY2+9);
       return cs;
     };
-    tvCutSVG+=mkTVCutLine(WX+topCutXs[0]*scX,'B',true);
-    if(topCutXs.length>1)
-      tvCutSVG+=mkTVCutLine(WX+topCutXs[topCutXs.length-1]*scX,'B',false);
+    const lastTopX=topCutXs[topCutXs.length-1];
+    tvCutSVG+=mkTVCutLine(WX+lastTopX*scX,'B',false);
   }
   s+=tvCutSVG;
 
@@ -1822,9 +1827,9 @@ function generate(){
      SECTION VIEWS
   ════════════════════════ */
   if(wHoles.length>0||holes.length>0)
-    s+=drawSection(secAx, secAy, H, B1, B2, D, secSc, wHoles, 'A - A', `1:${r(1/secSc,1)}`);
+    s+=drawSection(secAx, secAy, H, B1, B2, D, secSc, wHoles, 'A - A', `1:${r(1/secSc,1)}`, true);
   if(hasSecB)
-    s+=drawSection(secBx, secBy, H, B1, B2, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`);
+    s+=drawSection(secBx, secBy, H, B1, B2, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`, false);
 
   /* ══ HOLE SCHEDULE ══
      เรียงตาม X → ภายใน X เดียวกัน เรียง T,W,B
