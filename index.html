@@ -1400,28 +1400,24 @@ function getHoles(){
   const H=+document.getElementById('pH').value;
   const result=[];
   Array.from(document.getElementById('htbody').querySelectorAll('tr')).forEach(tr=>{
-    const inp=tr.querySelectorAll('input,select');
-    const qty=parseInt(inp[0].value)||1;
-    const face=inp[1].value; // used for H2 override only
-    const X=parseFloat(inp[2].value)||0;
-    const holeType=inp[3].value;
+    // ใช้ class selector แทน index เพื่อ robust กับการเพิ่มช่องใหม่
+    const qty  = parseInt(tr.querySelector('input[type=number]')?.value)||1;
+    const face = tr.querySelector('.face-sel')?.value||'WEB';
+    const X    = parseFloat(tr.querySelector('.x-inp')?.value)||0;
+    const holeType = tr.querySelector('.type-sel')?.value||'H1';
 
     if(holeType==='H1'){
-      // 2 slots on WEB, symmetric about H/2, C-to-C = GL
       const subs=h1Holes(H);
       subs.forEach(sub=>{
         result.push({qty,face:'WEB',X,Y:sub.Y,dia:SLOT_DH,slot:true,slotW:SLOT_WH,
           holeType:'H1',glSpan:sub.glSpan||null,_xPos:[X]});
       });
     } else if(holeType==='H2'){
-      // 1 slot B1 (TOP) + 1 slot B2 (BOT), same X
       result.push({qty,face:'TOP',X,Y:0,dia:SLOT_DH,slot:true,slotW:SLOT_WH,holeType:'H2',_xPos:[X]});
       result.push({qty,face:'BOT',X,Y:0,dia:SLOT_DH,slot:true,slotW:SLOT_WH,holeType:'H2',_xPos:[X]});
     } else if(holeType==='H3'){
-      // 1 circle at web centre
       result.push({qty,face:'WEB',X,Y:Math.round(H/2),dia:18,slot:false,holeType:'H3',_xPos:[X]});
     } else {
-      // TOP/BOT manual
       result.push({qty,face,X,Y:0,dia:SLOT_DH,slot:true,slotW:SLOT_WH,holeType,_xPos:[X]});
     }
   });
@@ -1477,12 +1473,12 @@ function generate(){
   const TB_Y=SH-MB;
   const CONTENT_H=TB_Y-MT;
 
-  // Web View zone — ขยายให้พอสำหรับ callout ด้านบน/ล่าง
-  const WEB_H=Math.round(CONTENT_H*0.42);
+  // Web View zone — ลดลงจาก 42% → 35% เพื่อให้ Top View ขึ้นสูงขึ้น
+  const WEB_H=Math.round(CONTENT_H*0.35);
   const tvY=MT+WEB_H;   // top-view zone starts here
 
-  // Top View zone — เพิ่มนิดสำหรับ callout B1/B2
-  const TV_H=Math.round(CONTENT_H*0.15);
+  // Top View zone
+  const TV_H=Math.round(CONTENT_H*0.13);
   const divY=tvY+TV_H;  // section zone starts here
 
   // Section+Schedule zone (remaining)
