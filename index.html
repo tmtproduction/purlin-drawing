@@ -1069,21 +1069,25 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=t
     s+=DH(sec_cx,sec_cx+sB2,sec_cy+20,fmt(B2),CDIM,sec_cy);
     s+=ST(sec_cx+sB2/2,sec_cy+31,'Bottom Flange',6,'middle','#555');
 
-    // Depth (H) — ด้านขวา
+    // H dim ด้านขวา — วัดเฉพาะ web body (ไม่รวม lip)
+    // ระยะจริงของ web = H (ครอบ lip อยู่แล้วใน H)
+    // แต่ dim arrow ชี้จาก top flange ถึง bot flange (sec_cy-sH → sec_cy)
     const depthX=sec_cx+sB2+38;
-    s+=DV(depthX,sec_cy-sH,sec_cy,fmt(H),CDIM,sec_cx+sB2,7.5);
+    s+=DV(depthX,sec_cy-sH,sec_cy,`H=${fmt(H)}`,CDIM,sec_cx+sB2,7.5);
 
-    // Lt (Top Lip) + Lb (Bottom Lip) — แนวเดียวกัน ด้านขวาของ Depth
-    const lipX=depthX+26;
-    s+=DV(lipX,sec_cy-sH,sec_cy-sH+sD,`Lt=${fmt(D)}`,CDIM,sec_cx+sB2,6.5);
-    s+=DV(lipX,sec_cy-sD,sec_cy,    `Lb=${fmt(D)}`,CDIM,sec_cx+sB2,6.5);
+    // Lt (Top Lip) + Lb (Bottom Lip) — ด้านซ้ายของ H dim ไม่ซ้อนกัน
+    const lipX=depthX+28;
+    // Lt: จาก top edge ลงมา D mm
+    s+=DV(lipX,sec_cy-sH,sec_cy-sH+sD,`Lt=${fmt(D)}`,CDIM,null,6.5);
+    // Lb: จาก bot edge ขึ้นมา D mm
+    s+=DV(lipX,sec_cy-sD,sec_cy,    `Lb=${fmt(D)}`,CDIM,null,6.5);
 
     // t label
     s+=ST(sec_cx+4,sec_cy-sH/2-4,'t',6,'start','#555','bold');
-    // H dim ด้านซ้ายสุด
-    const uniqueHY_loc=[...new Set(holes.filter(h=>!h.face||h.face==='WEB').map(h=>h.Y))].sort((a,b)=>a-b);
-    const hDX=sec_cx-sB1-(uniqueHY_loc.length+1)*20-12;
-    s+=DV(hDX,sec_cy-sH,sec_cy,`H=${fmt(H)}`,CDIM,sec_cx-sB1,7);
+
+    // H=? บอกด้านซ้าย — ยกเลิก (ซ้ำกับด้านขวา)
+    // แทนด้วย label "H=xxx" ข้างบน Y-Y centerline
+    s+=ST(sec_cx-sB1-8,sec_cy-sH/2,`H=${fmt(H)}`,6.5,'end','#555','bold');
   }
 
   // ── WEB HOLES — แสดงเป็นสี่เหลี่ยมเล็กบนความหนาของ web ──
@@ -1569,25 +1573,7 @@ function generate(){
   s+=ST(WX+webPxW/2, MT+11, 'WEB VIEW (ELEVATION)',9,'middle','#000','bold');
   s+=ST(WX+webPxW/2, MT+21, purlinLabel,7.5,'middle','#555');
 
-  /* ── HOLE TYPE LEGEND (top-right) ── */
-  {
-    const LEG=[
-      {type:'H1',label:'H1 — Web slot (×2)'},
-      {type:'H2',label:'H2 — Flange slot (T+B)'},
-      {type:'H3',label:'H3 — Web circle'},
-    ];
-    const lx=SW-MR-4, ly=MT+6, lh=13, lgap=2;
-    const lbgW=148;
-    s+=`<rect x="${r(lx-lbgW)}" y="${r(ly-2)}" width="${lbgW}" height="${LEG.length*(lh+lgap)+4}" rx="3" fill="#f8f8f4" stroke="#ccc" stroke-width="0.5"/>`;
-    LEG.forEach((item,i)=>{
-      const hs=holeStyle(item.type);
-      const iy=ly+i*(lh+lgap)+lh/2+1;
-      // Colored dot
-      s+=SC(lx-lbgW+10, iy, 4, hs.stroke, .7, hs.fill);
-      // Label
-      s+=ST(lx-lbgW+18, iy+3.5, item.label, 7.5, 'start', hs.stroke, 'bold');
-    });
-  }
+  /* ── HOLE TYPE LEGEND — จะวางหลัง schedule (เพื่อคำนวณตำแหน่ง schedBottom) ── */
   if(distorted) s+=ST(WX+webPxW/2,MT+30,'(DIAGRAMMATIC)',6.5,'middle','#c00');
 
   // Centerline
@@ -1997,6 +1983,31 @@ function generate(){
     });
   });
   if(!schedRows.length) s+=ST(SCH_X+SCH_W/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
+
+  /* ── HOLE TYPE LEGEND — ใต้ section views (section zone ด้านซ้าย) ── */
+  {
+    const LEG=[
+      {type:'H1',label:'H1 — Web slot (×2)'},
+      {type:'H2',label:'H2 — Flange slot (T+B)'},
+      {type:'H3',label:'H3 — Web circle'},
+    ];
+    const lh=12, lgap=3, lbgW=152;
+    // วางใต้ section label (SECTION A-A text + scale ≈ 28px ต่ำกว่า secAy)
+    const legY = secAy + 28;
+    // X: กึ่งกลางของ section zone (ML ถึง SCH_X divider)
+    const legCX = ML + (SCH_X - 8 - ML) / 2;
+    const lx = legCX + lbgW/2;
+    const ly = legY + 6;
+    if(ly + LEG.length*(lh+lgap) + 4 < TB_Y - 4){
+      s+=`<rect x="${r(lx-lbgW)}" y="${r(ly-2)}" width="${lbgW}" height="${LEG.length*(lh+lgap)+4}" rx="3" fill="#f8f8f4" stroke="#ccc" stroke-width="0.5"/>`;
+      LEG.forEach((item,i)=>{
+        const hs=holeStyle(item.type);
+        const iy=ly+i*(lh+lgap)+lh/2+1;
+        s+=SC(lx-lbgW+10, iy, 4, hs.stroke, .7, hs.fill);
+        s+=ST(lx-lbgW+18, iy+3.5, item.label, 7.5, 'start', hs.stroke, 'bold');
+      });
+    }
+  }
 
   /* ══ TITLE BLOCK ══ */
   s+=drawTitleBlock(tb,purlinLabel,TB_Y, _curPage+1, _pages.length);
