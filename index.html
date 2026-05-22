@@ -740,16 +740,15 @@ function DV(dimX,y1,y2,lbl,c=CDIM,originX=null,lblSz=7.5){
   s+=SL(dimX,y1,dimX,y2,c,.45);
   s+=ARR(dimX,y1,0,1,c)+ARR(dimX,y2,0,-1,c);
 
-  // Label (aligned: อ่านจากด้านขวา = หมุน -90°)
-  const lblOffset=goLeft?-10:10;
-  const ox=dimX+lblOffset;
+  // Label — กึ่งกลางเส้น dim เสมอ (หมุน -90°)
   if(span<16){
     // แคบเกิน → label ออกด้านข้าง horizontal
     const lx=goLeft?dimX-13:dimX+13;
     s+=SL(dimX,mid,lx,mid,c,.3);
     s+=ST(lx+(goLeft?-2:2),mid+3,lbl,Math.max(lblSz-1,6),goLeft?'end':'start',c);
   } else {
-    s+=ST(ox,mid,lbl,lblSz,'middle',c,'normal',`rotate(-90,${r(ox)},${r(mid)})`);
+    // label กึ่งกลางเส้น dim (ox=dimX, mid=center Y)
+    s+=ST(dimX,mid,lbl,lblSz,'middle',c,'normal',`rotate(-90,${r(dimX)},${r(mid)})`);
   }
   return s;
 }
@@ -1143,34 +1142,22 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=t
   s+=ST(yyR+8,yyY,'Y',8,'middle','#333','bold');
   s+=ST(yyR+18,yyY+8,'Depth',6,'start','#666');
 
-  // ── Dims — แสดงเฉพาะใน A-A (isPrimary) เพื่อไม่ซ้ำ B-B ──
+  // ── Dims — แสดงเฉพาะใน A-A (isPrimary) ──
   if(isPrimary){
-    // Top Flange (B1)
+    // B1 dim — เหนือ top flange
     s+=DH(sec_cx-sB1,sec_cx,sec_cy-sH-22,fmt(B1),CDIM,sec_cy-sH);
-    s+=ST(sec_cx-sB1/2,sec_cy-sH-32,'Top flange',6,'middle','#555');
-    // Bottom Flange (B2)
+    s+=ST(sec_cx-sB1/2,sec_cy-sH-32,'Top Flange',6,'middle','#555');
+    // B2 dim — ใต้ bot flange
     s+=DH(sec_cx,sec_cx+sB2,sec_cy+20,fmt(B2),CDIM,sec_cy);
     s+=ST(sec_cx+sB2/2,sec_cy+31,'Bottom Flange',6,'middle','#555');
 
-    // H dim ด้านขวา — วัดเฉพาะ web body (ไม่รวม lip)
-    // ระยะจริงของ web = H (ครอบ lip อยู่แล้วใน H)
-    // แต่ dim arrow ชี้จาก top flange ถึง bot flange (sec_cy-sH → sec_cy)
-    const depthX=sec_cx+sB2+38;
-    s+=DV(depthX,sec_cy-sH,sec_cy,`H=${fmt(H)}`,CDIM,sec_cx+sB2,7.5);
+    // H label บน Y-Y centerline ด้านซ้าย
+    s+=ST(sec_cx-sB1-8,sec_cy-sH/2-5,`H=${fmt(H)}`,6.5,'end','#555','bold');
 
-    // Lt (Top Lip) + Lb (Bottom Lip) — ด้านซ้ายของ H dim ไม่ซ้อนกัน
-    const lipX=depthX+28;
-    // Lt: จาก top edge ลงมา D mm
+    // Lt / Lb — ด้านขวา
+    const lipX=sec_cx+sB2+22;
     s+=DV(lipX,sec_cy-sH,sec_cy-sH+sD,`Lt=${fmt(D)}`,CDIM,null,6.5);
-    // Lb: จาก bot edge ขึ้นมา D mm
     s+=DV(lipX,sec_cy-sD,sec_cy,    `Lb=${fmt(D)}`,CDIM,null,6.5);
-
-    // t label
-    s+=ST(sec_cx+4,sec_cy-sH/2-4,'t',6,'start','#555','bold');
-
-    // H=? บอกด้านซ้าย — ยกเลิก (ซ้ำกับด้านขวา)
-    // แทนด้วย label "H=xxx" ข้างบน Y-Y centerline
-    s+=ST(sec_cx-sB1-8,sec_cy-sH/2,`H=${fmt(H)}`,6.5,'end','#555','bold');
   }
 
   // ── WEB HOLES — แสดงเป็นสี่เหลี่ยมเล็กบนความหนาของ web ──
@@ -1186,81 +1173,88 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=t
     const hole=webH.find(h=>h.Y===hy);
     const screenY=sec_cy-hy*sc;
     const isTop=hy>H/2;
+    const hs=holeStyle(hole?.holeType||'H1');
 
-    // สี่เหลี่ยมรู บนผิว web (ด้านซ้าย = ด้าน B1)
-    const rW=Math.max((hole?.slotW||SLOT_WH)*sc*0.5, 8); // ความกว้าง slot
-    const rH=Math.max(SLOT_DH*sc*0.4, 4);                 // ความสูง slot
-    // วางบน web face (ซ้ายของ sec_cx)
-    s+=`<rect x="${r(sec_cx-t_px)}" y="${r(screenY-rH/2)}" width="${r(t_px)}" height="${r(rH)}" fill="${COUT}" stroke="none" rx="1"/>`;
-    // สี่เหลี่ยมฝั่งขวา web ด้วย (เจาะทะลุ)
-    s+=`<rect x="${r(sec_cx)}" y="${r(screenY-rH/2)}" width="${r(t_px)}" height="${r(rH)}" fill="white" stroke="${COUT}" stroke-width="0.5" rx="1"/>`;
-
-    // Center mark — จุดกึ่งกลางรู (ใช้สำหรับ snap ใน CAD)
-    const CM=4;
-    s+=SC(sec_cx, screenY, 1.8, '#555', 0.8, '#555');
-    s+=SL(sec_cx-CM, screenY, sec_cx+CM, screenY, '#555', .5, '2,1.5');
-    s+=SL(sec_cx, screenY-CM, sec_cx, screenY+CM, '#555', .5, '2,1.5');
-
-    // dim E (top hole) หรือ F (bottom hole)
-    const dimLabel=isTop?'E':'F';
-    const dimX=sec_cx-sB1-22-i*18;
-    if(isTop){
-      s+=DV(dimX,sec_cy-sH,screenY,`${dimLabel}=${fmt(H-hy)}`,CDIM,sec_cx-sB1,6.5);
+    // รูเจาะบนผิว web — แสดงเป็น ellipse สีตาม type (คล้ายจริง)
+    const rH=Math.max(SLOT_DH*sc*0.45, 5);
+    const rW=Math.max(SLOT_WH*sc*0.35, 8);
+    if(hole?.slot!==false){
+      // Slot: ellipse แนวนอน (ขนาน flange)
+      s+=`<ellipse cx="${r(sec_cx)}" cy="${r(screenY)}" rx="${r(rW/2)}" ry="${r(rH/2)}" fill="${hs.fill}" stroke="${hs.stroke}" stroke-width="0.9"/>`;
     } else {
-      s+=DV(dimX,screenY,sec_cy,`${dimLabel}=${fmt(hy)}`,CDIM,sec_cx-sB1,6.5);
+      // Circle hole (H3)
+      s+=`<circle cx="${r(sec_cx)}" cy="${r(screenY)}" r="${r(rH/2)}" fill="${hs.fill}" stroke="${hs.stroke}" stroke-width="0.9"/>`;
+    }
+    // Center crosshair
+    const CM=4;
+    s+=SL(sec_cx-CM,screenY,sec_cx+CM,screenY,hs.stroke,.45,'2,1.5');
+    s+=SL(sec_cx,screenY-CM,sec_cx,screenY+CM,hs.stroke,.45,'2,1.5');
+
+    // Leader note ออกทางขวา
+    const ang=isTop?-0.5:0.5;
+    const ldX=sec_cx+Math.cos(ang)*28, ldY=screenY+Math.sin(ang)*28;
+    const noteLbl=hole?.slot===false?`Ø${fmt(hole?.dia||18)}`:`${SLOT_DH}×${SLOT_WH} Slot`;
+    s+=SL(sec_cx,screenY,ldX,ldY,hs.stroke,.45);
+    s+=SL(ldX,ldY,ldX+32,ldY,hs.stroke,.45);
+    s+=ST(ldX+34,ldY+3,noteLbl,7.5,'start',hs.stroke,'bold');
+  });
+
+  // ── Y CHAIN DIM (ซ้าย) — top → holes → bot ──
+  if(uniqueY.length>0){
+    const chainYphys=[H,...[...uniqueY].sort((a,b)=>b-a),0];
+    // วาง chain ซ้ายของ B1 flange ทีละ lane (ห่างกัน 18px)
+    const laneCount=chainYphys.length-1;
+    const baseChainX=sec_cx-sB1-20;
+
+    // Single chain lane (ทุก chain ใน X เดียวกัน)
+    for(let i=0;i<chainYphys.length-1;i++){
+      const sy1=sec_cy-chainYphys[i]*sc;
+      const sy2=sec_cy-chainYphys[i+1]*sc;
+      const gap=chainYphys[i]-chainYphys[i+1];
+      s+=DV(baseChainX,sy1,sy2,fmt(gap),CDIM,sec_cx-sB1,6.5);
+    }
+    // Overall H dim อีก lane ถัดออก
+    if(laneCount>2){
+      s+=DV(baseChainX-20,sec_cy-sH,sec_cy,`H=${fmt(H)}`,CDIM,sec_cx-sB1,7);
     }
 
-    // Leader note (ออกทางขวา)
-    const ang=isTop?-0.6:0.6;
-    const ldX=sec_cx+Math.cos(ang)*24, ldY=screenY+Math.sin(ang)*24;
-    const noteLbl=hole?.slot?`${SLOT_DH}×${SLOT_WH} Slot`:`Ø${fmt(hole?.dia||18)}`;
-    s+=SL(sec_cx,screenY,ldX,ldY,CDIM,.45);
-    s+=SL(ldX,ldY,ldX+30,ldY,CDIM,.45);
-    s+=ST(ldX+32,ldY+3,noteLbl,8,'start',CDIM);
-  });
-
-  // Gauge dim (C-to-C H1 pair)
-  const h1s=webH.filter(h=>h.holeType==='H1');
-  if(h1s.length>=2){
-    const ys=h1s.map(h=>sec_cy-h.Y*sc).sort((a,b)=>a-b);
-    // Z: gauge dim ออกขวา (B2 side); C: ออกขวาจาก web edge (sec_cx)
-    const glX=isC ? sec_cx+22 : sec_cx+sB2+58;
-    s+=DV(glX,ys[0],ys[1],`GL=${fmt(getTMTRow(H).GL)}`,CDIM,null,6.5);
-    s+=ST(glX+10,(ys[0]+ys[1])/2,'Gauge',6,'start','#555','normal',
-      `rotate(-90,${r(glX+10)},${r((ys[0]+ys[1])/2)})`);
+    // GL dim ระหว่าง H1 pair (ถ้ามี 2 Y) — วางขวา web
+    const h1Ys=webH.filter(h=>h.holeType==='H1').map(h=>h.Y);
+    if(h1Ys.length===2){
+      const glScreenY1=sec_cy-Math.min(...h1Ys)*sc;
+      const glScreenY2=sec_cy-Math.max(...h1Ys)*sc;
+      const gl=Math.abs(h1Ys[0]-h1Ys[1]);
+      const glX=sec_cx+t_px+10;
+      s+=DV(glX,glScreenY2,glScreenY1,`GL=${fmt(gl)}`,CDIM,null,6.5);
+    }
   }
 
-  // ── FLANGE HOLES (TOP/BOT) ──
+  // ── FLANGE HOLES (TOP/BOT) ── ellipse สีตาม H2 style
+  const h2hs_sec=holeStyle('H2');
   holes.filter(h=>h.face==='TOP').forEach(hole=>{
-    // Z: B1 ยื่นซ้าย → center = sec_cx - sB1/2
-    // C: B1 ยื่นซ้าย → center = sec_cx - sB1/2 (เหมือนกัน)
     const hx=sec_cx-sB1/2, hy=sec_cy-sH;
-    const fw=Math.max(SLOT_WH*sc*0.5,8);
-    s+=`<rect x="${r(hx-fw/2)}" y="${r(hy-t_px)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
-    const ldLen=Math.max(sB1*0.7, 30);
-    s+=SL(hx,hy-t_px-3,hx,hy-t_px-16,CDIM,.45);
-    s+=SL(hx,hy-t_px-16,hx-ldLen,hy-t_px-16,CDIM,.45);
-    s+=ST(hx-ldLen-2,hy-t_px-13,`${SLOT_DH}×${SLOT_WH} Slot`,8,'end',CDIM);
+    const fw=Math.max(SLOT_WH*sc*0.35,8), fh=Math.max(SLOT_DH*sc*0.35,5);
+    s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(fw/2)}" ry="${r(fh/2)}" fill="${h2hs_sec.fill}" stroke="${h2hs_sec.stroke}" stroke-width="0.9"/>`;
+    const ldLen=Math.max(sB1*0.6, 28);
+    s+=SL(hx,hy-fh/2-3,hx,hy-fh/2-14,h2hs_sec.stroke,.45);
+    s+=SL(hx,hy-fh/2-14,hx-ldLen,hy-fh/2-14,h2hs_sec.stroke,.45);
+    s+=ST(hx-ldLen-2,hy-fh/2-11,`${SLOT_DH}×${SLOT_WH} Slot`,7.5,'end',h2hs_sec.stroke,'bold');
   });
   holes.filter(h=>h.face==='BOT').forEach(hole=>{
-    // Z: B2 ยื่นขวา → center = sec_cx + sB2/2
-    // C: B2 ยื่นซ้าย (เหมือน B1) → center = sec_cx - sB2/2
     const hx=isC ? sec_cx-sB2/2 : sec_cx+sB2/2;
     const hy=sec_cy;
-    const fw=Math.max(SLOT_WH*sc*0.5,8);
-    s+=`<rect x="${r(hx-fw/2)}" y="${r(hy)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
+    const fw=Math.max(SLOT_WH*sc*0.35,8), fh=Math.max(SLOT_DH*sc*0.35,5);
+    s+=`<ellipse cx="${r(hx)}" cy="${r(hy)}" rx="${r(fw/2)}" ry="${r(fh/2)}" fill="${h2hs_sec.fill}" stroke="${h2hs_sec.stroke}" stroke-width="0.9"/>`;
     if(isC){
-      // C: label ออกซ้าย (ทิศเดียวกับ TOP)
-      const ldLen=Math.max(sB2*0.7, 30);
-      s+=SL(hx,hy+t_px+3,hx,hy+t_px+16,CDIM,.45);
-      s+=SL(hx,hy+t_px+16,hx-ldLen,hy+t_px+16,CDIM,.45);
-      s+=ST(hx-ldLen-2,hy+t_px+19,`${SLOT_DH}×${SLOT_WH} Slot`,8,'end',CDIM);
+      const ldLen=Math.max(sB2*0.6, 28);
+      s+=SL(hx,hy+fh/2+3,hx,hy+fh/2+14,h2hs_sec.stroke,.45);
+      s+=SL(hx,hy+fh/2+14,hx-ldLen,hy+fh/2+14,h2hs_sec.stroke,.45);
+      s+=ST(hx-ldLen-2,hy+fh/2+17,`${SLOT_DH}×${SLOT_WH} Slot`,7.5,'end',h2hs_sec.stroke,'bold');
     } else {
-      // Z: label ออกขวา
-      const ldLen=Math.max(sB2*0.7, 30);
-      s+=SL(hx,hy+t_px+3,hx,hy+t_px+16,CDIM,.45);
-      s+=SL(hx,hy+t_px+16,hx+ldLen,hy+t_px+16,CDIM,.45);
-      s+=ST(hx+ldLen+2,hy+t_px+19,`${SLOT_DH}×${SLOT_WH} Slot`,8,'start',CDIM);
+      const ldLen=Math.max(sB2*0.6, 28);
+      s+=SL(hx,hy+fh/2+3,hx,hy+fh/2+14,h2hs_sec.stroke,.45);
+      s+=SL(hx,hy+fh/2+14,hx+ldLen,hy+fh/2+14,h2hs_sec.stroke,.45);
+      s+=ST(hx+ldLen+2,hy+fh/2+17,`${SLOT_DH}×${SLOT_WH} Slot`,7.5,'start',h2hs_sec.stroke,'bold');
     }
   });
 
@@ -1334,15 +1328,27 @@ function drawTitleBlock(tb,purlinLabel,tbY,sheetNum=1,totalSheets=1){
   s+=SL(RX,TY+R2,RX+RW,TY+R2,'#ccc',.4);
   s+=SL(RX+RW/2,TY+R1,RX+RW/2,TY+TH,'#ccc',.4);
 
-  // 3rd Angle Projection symbol — มุมบนขวาของ Right block (หลัง RX พร้อมใช้)
+  // 3rd Angle Projection symbol — กลางขวาของ DRAWING NO. block
   {
-    const sx=RX+RW-28, sy=TY+12;
-    const r1=6;
-    s+=`<circle cx="${r(sx-r1*1.7)}" cy="${r(sy)}" r="${r(r1)}" stroke="#999" stroke-width="0.7" fill="none"/>`;
-    s+=`<circle cx="${r(sx-r1*1.7)}" cy="${r(sy)}" r="2" fill="#999"/>`;
-    const tw=r1*1.0, th=r1*0.55;
-    s+=`<path d="M${r(sx-tw*0.15)},${r(sy-th)} L${r(sx+tw)},${r(sy-th)} L${r(sx+tw+r1*0.45)},${r(sy+th)} L${r(sx-tw*0.15)},${r(sy+th)} Z" stroke="#999" stroke-width="0.7" fill="none"/>`;
-    s+=ST(sx-r1*1.7,sy+r1+5,'3rd Angle',4.5,'middle','#bbb');
+    const R=7.5;
+    // วางกึ่งกลางแนวตั้งของ R1 block, ชิดขวา
+    const cx2=RX+RW-R-6;           // circles: ชิดขวา pad 6px
+    const cx1=cx2-R*3.6;           // frustum center
+    const cy=TY+R1/2;              // กึ่งกลางแนวตั้ง R1 block
+
+    // Double concentric circles
+    s+=`<circle cx="${r(cx2)}" cy="${r(cy)}" r="${r(R)}" stroke="#666" stroke-width="0.6" fill="none"/>`;
+    s+=`<circle cx="${r(cx2)}" cy="${r(cy)}" r="${r(R*0.46)}" stroke="#666" stroke-width="0.6" fill="none"/>`;
+    const ch=R*1.4;
+    s+=SL(cx2-ch,cy,cx2+ch,cy,'#888',.35,'4,2.5');
+    s+=SL(cx2,cy-ch,cx2,cy+ch,'#888',.35,'4,2.5');
+
+    // Frustum
+    const fw=R*1.25, fhL=R*0.88, fhR=R*0.5;
+    s+=`<path d="M${r(cx1-fw)},${r(cy-fhL)} L${r(cx1+fw)},${r(cy-fhR)} L${r(cx1+fw)},${r(cy+fhR)} L${r(cx1-fw)},${r(cy+fhL)} Z"
+      stroke="#666" stroke-width="0.6" fill="none"/>`;
+    s+=SL(cx1+fw,cy, cx2-ch,cy, '#888',.35,'4,2.5');
+    s+=ST((cx1+cx2)/2+R*0.3, cy+R+5, '3rd Angle',4,'middle','#aaa');
   }
 
   s+=ST(RX+RW/2,TY+R1*0.28,'DRAWING NO.',6.5,'middle','#888');
@@ -1808,10 +1814,10 @@ function generate(){
 
   /* Helper: draw a slot (oval) on SVG
      cx,cy = centre, slotH = short axis px, slotW = long axis px, vertical=true → tall oval */
-  function drawSlot(cx,cy,slotHpx,slotWpx,vertical=true){
+  function drawSlot(cx,cy,slotHpx,slotWpx,vertical=true,stroke=COUT,fill='white'){
     const rx=vertical?slotHpx/2:slotWpx/2;
     const ry=vertical?slotWpx/2:slotHpx/2;
-    return`<ellipse cx="${r(cx)}" cy="${r(cy)}" rx="${r(rx,2)}" ry="${r(ry,2)}" stroke="${COUT}" stroke-width="0.9" fill="white"/>`;
+    return`<ellipse cx="${r(cx)}" cy="${r(cy)}" rx="${r(rx,2)}" ry="${r(ry,2)}" stroke="${stroke}" stroke-width="0.9" fill="${fill}"/>`;
   }
 
   // Collect web holes per X position (group H1 pairs together for GL dim)
@@ -1819,19 +1825,20 @@ function generate(){
   expanded.filter(h=>h.face==='WEB').forEach(hole=>{
     const hy=WY+(H-hole.Y)*scY;
     const hx=WX+hole.X*scX;
+    const hs=holeStyle(hole.holeType);
     const CROSS=7;
-    // Crosshair
-    s+=SL(hx-CROSS,hy,hx+CROSS,hy,CDIM,.4,'4,2');
-    s+=SL(hx,hy-CROSS,hx,hy+CROSS,CDIM,.4,'4,2');
-    // Shape
+    // Crosshair ใช้สีของ type
+    s+=SL(hx-CROSS,hy,hx+CROSS,hy,hs.stroke,.45,'4,2');
+    s+=SL(hx,hy-CROSS,hx,hy+CROSS,hs.stroke,.45,'4,2');
+    // Shape ใส่สีตาม type
     if(hole.slot){
       const slotHpx=Math.max(hole.dia*scY*0.5,5);
       const slotWpx=Math.max((hole.slotW||SLOT_WH)*scY*0.5,8);
-      s+=drawSlot(hx,hy,slotHpx,slotWpx,false); // horizontal slot on web
+      s+=drawSlot(hx,hy,slotHpx,slotWpx,false,hs.stroke,hs.fill);
     } else {
-      s+=SC(hx,hy,Math.max(hole.dia/2*scY,3.5),COUT,.9,'white');
+      s+=SC(hx,hy,Math.max(hole.dia/2*scY,3.5),hs.stroke,.9,hs.fill);
     }
-    // Collect for callout grouping
+    // Collect for Y-grouping (ยังเก็บไว้สำหรับ GL dim)
     const yKey=Math.round(hy);
     if(!webHolesByY[yKey]) webHolesByY[yKey]=[];
     const lbl=hole.slot?`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`:`${hole.qty}-Ø${fmt(hole.dia)} Hole.`;
@@ -1862,18 +1869,7 @@ function generate(){
     }
   });
 
-  // Ribbon/pill callouts — แสดงเฉพาะ rightmost X group ในแต่ละ Y row
-  const webMidY=WY+webPxH/2;
-  const maxWebX=webCutXs.length>0 ? webCutXs[webCutXs.length-1] : null;
-  Object.values(webHolesByY).forEach(group=>{
-    // กรองเฉพาะรูที่ X = rightmost
-    const rightGroup = maxWebX!==null
-      ? group.filter(h => Math.abs(h.hx - (WX+maxWebX*scX)) < 2)
-      : group;
-    if(!rightGroup.length) return;
-    const above=rightGroup[0].hy < webMidY;
-    s+=renderHoleCallouts(rightGroup, above);
-  });
+  // ── Ribbon callouts ถูกตัดออก — ดูข้อมูลใน Hole Schedule แทน ──
 
   // Cut lines AFTER callouts — แสดงเฉพาะด้านขวา (lastX เท่านั้น)
   let cutLineSVG='';
@@ -1938,42 +1934,35 @@ function generate(){
     blockCircle(WX+lastTopX*scX, tvCutY2, 9);
   }
 
-  /* TOP face holes — oval slot for H2 — callout เฉพาะ rightmost X */
+  /* TOP face holes — ใส่สีตาม H2 style */
+  const h2hs=holeStyle('H2');
   const maxTopX=tHoles.length>0 ? Math.max(...tHoles.map(h=>h.X)) : null;
   tHoles.forEach((hole)=>{
     const hx=WX+hole.X*scX;
     const cy=tvWYb1+tvB1h/2;
-    const hr=Math.max(hole.dia/2*Math.min(scX,tvScale),3);
     if(hole.slot){
       const slotHpx=Math.max(SLOT_DH/2*tvScale,4);
       const slotWpx=Math.max(SLOT_WH/2*tvScale,6);
-      s+=`<ellipse cx="${r(hx)}" cy="${r(cy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${COUT}" stroke-width="0.8" fill="white"/>`;
+      s+=`<ellipse cx="${r(hx)}" cy="${r(cy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${h2hs.stroke}" stroke-width="0.8" fill="${h2hs.fill}"/>`;
     } else {
-      s+=SC(hx,cy,hr,COUT,.7,'white');
+      s+=SC(hx,cy,Math.max(hole.dia/2*Math.min(scX,tvScale),3),h2hs.stroke,.7,h2hs.fill);
     }
-    s+=SL(hx-3,cy,hx+3,cy,'#555',.4,'3,2');
-    s+=SL(hx,cy-3,hx,cy+3,'#555',.4,'3,2');
-    // callout เฉพาะ rightmost X
-    if(maxTopX!==null && hole.X===maxTopX)
-      s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,true,'H2');
+    s+=SL(hx-3,cy,hx+3,cy,h2hs.stroke,.4,'3,2');
+    s+=SL(hx,cy-3,hx,cy+3,h2hs.stroke,.4,'3,2');
   });
 
-  /* BOT face holes — callout เฉพาะ rightmost X */
+  /* BOT face holes — ใส่สีตาม H2 style */
   const maxBotX=bHoles.length>0 ? Math.max(...bHoles.map(h=>h.X)) : null;
   bHoles.forEach((hole)=>{
     const hx=WX+hole.X*scX;
     const cy=tvWYb2+tvB2h/2;
-    const hr=Math.max(hole.dia/2*Math.min(scX,tvScale),3);
     if(hole.slot){
       const slotHpx=Math.max(SLOT_DH/2*tvScale,4);
       const slotWpx=Math.max(SLOT_WH/2*tvScale,6);
-      s+=`<ellipse cx="${r(hx)}" cy="${r(cy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="#555" stroke-width="0.8" fill="white" stroke-dasharray="3,2"/>`;
+      s+=`<ellipse cx="${r(hx)}" cy="${r(cy)}" rx="${r(slotWpx,2)}" ry="${r(slotHpx,2)}" stroke="${h2hs.stroke}" stroke-width="0.8" fill="${h2hs.fill}" stroke-dasharray="3,2"/>`;
     } else {
-      s+=`<circle cx="${r(hx)}" cy="${r(cy)}" r="${r(hr,2)}" stroke="#555" stroke-width="0.7" fill="white" stroke-dasharray="3,2"/>`;
+      s+=`<circle cx="${r(hx)}" cy="${r(cy)}" r="${r(Math.max(hole.dia/2*Math.min(scX,tvScale),3),2)}" stroke="${h2hs.stroke}" stroke-width="0.7" fill="${h2hs.fill}" stroke-dasharray="3,2"/>`;
     }
-    // callout เฉพาะ rightmost X
-    if(maxBotX!==null && hole.X===maxBotX)
-      s+=placeCallout(hx,cy,`${hole.qty}-(${SLOT_DH}×${SLOT_WH}) Slot.`,false,'H2');
   });
 
   // B-B cut lines — แสดงเฉพาะด้านขวา (lastX เท่านั้น)
@@ -2069,11 +2058,15 @@ function generate(){
     }
   });
 
-  // เรียง: T → B → W, ภายใน face เดียวกัน เรียง X น้อย→มาก
-  const faceOrder={'T':0,'B':1,'W':2};
+  // เรียง: W → T → B (face), ภายใน face เรียง H1→H2→H3 (type), แล้ว X น้อย→มาก
+  const faceOrder={'W':0,'T':1,'B':2};
+  const typeOrder={'H1':0,'H2':1,'H3':2,'TOP':1,'BOT':2};
   schedRows.sort((a,b)=>{
-    const fo=(faceOrder[a.face]??2)-(faceOrder[b.face]??2);
-    return fo!==0 ? fo : a.X-b.X;
+    const fo=(faceOrder[a.face]??3)-(faceOrder[b.face]??3);
+    if(fo!==0) return fo;
+    const to=(typeOrder[a.holeType]??9)-(typeOrder[b.holeType]??9);
+    if(to!==0) return to;
+    return a.X-b.X;
   });
 
   const schY=divY+6;
@@ -2087,14 +2080,20 @@ function generate(){
     {h:'Type',    w:28},
     {h:'จำนวนรู', w:30},
     {h:'Y (mm)',  w:40},
-    {h:'Shape',   w:0},
+    {h:'Shape',   w:72},  // ← fixed ลดลงจาก dynamic
   ];
-  const fixedW2=scols.slice(0,-1).reduce((a,c)=>a+c.w,0);
-  scols[scols.length-1].w=Math.max(40, SCH_W-fixedW2-4);
+  const totalColW=scols.reduce((a,c)=>a+c.w,0);
+  // ชิดขวาเสมอ — คำนวณ startX จาก right edge
+  const schedRight=SW-MR-4;
+  const schedStartX=schedRight-totalColW;
+
+  // อัปเดต schedule background ให้ครอบ totalColW พอดี
+  s+=SR(schedStartX,schY,totalColW,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
+  s+=ST(schedStartX+totalColW/2,schY+10,'HOLE SCHEDULE',8,'middle','#000','bold');
 
   const SCH_ROW_H=11;
   const thY2=schY+14;
-  let cx2=SCH_X-2;
+  let cx2=schedStartX;
   scols.forEach(col=>{
     s+=SR(cx2,thY2,col.w,SCH_ROW_H+2,'#aaa',.4,'#e0dbbf');
     s+=ST(cx2+col.w/2,thY2+SCH_ROW_H-1,col.h,5.5,'middle','#444','bold');
@@ -2106,16 +2105,16 @@ function generate(){
     const bg=i%2===0?'#fafaf7':'#eee8d4';
     const vals=[String(i+1), h.face, fmt(h.X), h.holeType||'—',
                 String(h.holeCount), h.yDisp, h.shapeDisp];
-    cx2=SCH_X-2;
+    cx2=schedStartX;
     scols.forEach((col,j)=>{
       s+=SR(cx2,ry,col.w,SCH_ROW_H+2,'#ddd',.3,bg);
-      s+=ST(cx2+col.w/2,ry+SCH_ROW_H-1,vals[j],6.5,'middle','#111');
+      s+=ST(cx2+col.w/2,ry+SCH_ROW_H-1,vals[j],6,'middle','#111');
       cx2+=col.w;
     });
   });
-  if(!schedRows.length) s+=ST(SCH_X+SCH_W/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
+  if(!schedRows.length) s+=ST(schedStartX+totalColW/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
 
-  /* ── HOLE TYPE LEGEND — ใต้ section views (section zone ด้านซ้าย) ── */
+  /* ── HOLE TYPE LEGEND — มุมซ้ายล่างของ Section zone ── */
   {
     const LEG=[
       {type:'H1',label:'H1 — Web slot (×2)'},
@@ -2123,21 +2122,17 @@ function generate(){
       {type:'H3',label:'H3 — Web circle'},
     ];
     const lh=12, lgap=3, lbgW=152;
-    // วางใต้ section label (SECTION A-A text + scale ≈ 28px ต่ำกว่า secAy)
-    const legY = secAy + 28;
-    // X: กึ่งกลางของ section zone (ML ถึง SCH_X divider)
-    const legCX = ML + (SCH_X - 8 - ML) / 2;
-    const lx = legCX + lbgW/2;
-    const ly = legY + 6;
-    if(ly + LEG.length*(lh+lgap) + 4 < TB_Y - 4){
-      s+=`<rect x="${r(lx-lbgW)}" y="${r(ly-2)}" width="${lbgW}" height="${LEG.length*(lh+lgap)+4}" rx="3" fill="#f8f8f4" stroke="#ccc" stroke-width="0.5"/>`;
-      LEG.forEach((item,i)=>{
-        const hs=holeStyle(item.type);
-        const iy=ly+i*(lh+lgap)+lh/2+1;
-        s+=SC(lx-lbgW+10, iy, 4, hs.stroke, .7, hs.fill);
-        s+=ST(lx-lbgW+18, iy+3.5, item.label, 7.5, 'start', hs.stroke, 'bold');
-      });
-    }
+    const totalH=LEG.length*(lh+lgap)+4;
+    // มุมซ้ายล่าง: X = ML+4, Y = TB_Y - totalH - 8
+    const lx=ML+4;
+    const ly=TB_Y-totalH-8;
+    s+=`<rect x="${r(lx)}" y="${r(ly-2)}" width="${lbgW}" height="${totalH}" rx="3" fill="#f8f8f4" stroke="#ccc" stroke-width="0.5"/>`;
+    LEG.forEach((item,i)=>{
+      const hs=holeStyle(item.type);
+      const iy=ly+i*(lh+lgap)+lh/2+1;
+      s+=SC(lx+10, iy, 4, hs.stroke, .7, hs.fill);
+      s+=ST(lx+18, iy+3.5, item.label, 7.5, 'start', hs.stroke, 'bold');
+    });
   }
 
   /* ══ TITLE BLOCK ══ */
