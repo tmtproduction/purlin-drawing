@@ -1064,18 +1064,19 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=t
     // Top Flange (B1)
     s+=DH(sec_cx-sB1,sec_cx,sec_cy-sH-22,fmt(B1),CDIM,sec_cy-sH);
     s+=ST(sec_cx-sB1/2,sec_cy-sH-32,'Top flange',6,'middle','#555');
-    // Lt (Top Lip)
-    const ltX=sec_cx+8;
-    s+=DV(ltX,sec_cy-sH,sec_cy-sH+sD,`Lt=${fmt(D)}`,CDIM,null,6.5);
     // Bottom Flange (B2)
     s+=DH(sec_cx,sec_cx+sB2,sec_cy+20,fmt(B2),CDIM,sec_cy);
     s+=ST(sec_cx+sB2/2,sec_cy+31,'Bottom Flange',6,'middle','#555');
-    // Lb (Bottom Lip)
-    const lbX=sec_cx-sB2*0.9-16;
-    s+=DV(lbX,sec_cy-sD,sec_cy,`Lb=${fmt(D)}`,CDIM,null,6.5);
-    // Depth (H)
+
+    // Depth (H) — ด้านขวา
     const depthX=sec_cx+sB2+38;
     s+=DV(depthX,sec_cy-sH,sec_cy,fmt(H),CDIM,sec_cx+sB2,7.5);
+
+    // Lt (Top Lip) + Lb (Bottom Lip) — แนวเดียวกัน ด้านขวาของ Depth
+    const lipX=depthX+26;
+    s+=DV(lipX,sec_cy-sH,sec_cy-sH+sD,`Lt=${fmt(D)}`,CDIM,sec_cx+sB2,6.5);
+    s+=DV(lipX,sec_cy-sD,sec_cy,    `Lb=${fmt(D)}`,CDIM,sec_cx+sB2,6.5);
+
     // t label
     s+=ST(sec_cx+4,sec_cy-sH/2-4,'t',6,'start','#555','bold');
     // H dim ด้านซ้ายสุด
@@ -1208,15 +1209,29 @@ function drawTitleBlock(tb,purlinLabel,tbY,sheetNum=1,totalSheets=1){
   const apvY=TY+mSplit+1;
   const apvH=TH-mSplit-2;
   const apvDefs=[
-    {lbl:'DRAWN BY',       val:tb.by||'—'},
-    {lbl:'TMT APPROVE',    val:''},
-    {lbl:'CUST. APPROVE',  val:''},
+    {lbl:'DRAWN BY',         val:tb.by||'—'},
+    {lbl:'TMT APPROVE',      val:''},
+    {lbl:'CUSTOMER APPROVE', val:'', thirdAngle:true},
   ];
   apvDefs.forEach((ap,i)=>{
     const ax=MX+i*apvW;
-    if(i>0) s+=SL(ax,apvY,ax,apvY+apvH,'#ccc',.4); // divider
+    if(i>0) s+=SL(ax,apvY,ax,apvY+apvH,'#ccc',.4);
+
+    // Third Angle Projection symbol เหนือ "Customer Approve"
+    if(ap.thirdAngle){
+      const sx=ax+apvW/2, sy=apvY+apvH*0.45;
+      const r1=5.5, r2=3;
+      // วงกลมใหญ่ (frustum body)
+      s+=`<circle cx="${r(sx-r1*1.6)}" cy="${r(sy)}" r="${r(r1)}" stroke="#888" stroke-width="0.65" fill="none"/>`;
+      // frustum trapezoid ขวา (side face)
+      const tw=r1*1.1, th=r1*0.6;
+      s+=`<path d="M${r(sx+r2*0.5)},${r(sy-th)} L${r(sx+tw)},${r(sy-th)} L${r(sx+tw+r1*0.4)},${r(sy+th)} L${r(sx+r2*0.5)},${r(sy+th)} Z" stroke="#888" stroke-width="0.65" fill="none"/>`;
+      // dot (projection indicator)
+      s+=`<circle cx="${r(sx-r1*1.6)}" cy="${r(sy)}" r="1.5" fill="#888"/>`;
+      s+=ST(ax+apvW/2,apvY+apvH*0.62,'3rd Angle',5,'middle','#aaa');
+    }
+
     s+=ST(ax+apvW/2,apvY+apvH*0.22,ap.lbl,5.5,'middle','#888','bold');
-    // Signature line
     s+=SL(ax+8,apvY+apvH*0.72,ax+apvW-8,apvY+apvH*0.72,'#ccc',.5);
     if(ap.val) s+=ST(ax+apvW/2,apvY+apvH*0.62,ap.val,9,'middle','#000','bold');
   });
