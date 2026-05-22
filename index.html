@@ -1119,7 +1119,7 @@ function cProfile(ox,oy,H,F,D,sc,stroke=1.8){
   return`<path d="${d}" stroke="${COUT}" stroke-width="${stroke}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=true,isC=false){
+function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=true,isC=false,maxX=9999){
   let s='';
   const sH=H*sc, sB1=B1*sc, sB2=(isC?B1:B2)*sc, sD=D*sc;
   const t_px=Math.max(2.5*sc,3);
@@ -1251,10 +1251,14 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=t
       s+=SL(hx,hy+fh/2+14,hx-ldLen,hy+fh/2+14,h2hs_sec.stroke,.45);
       s+=ST(hx-ldLen-2,hy+fh/2+17,`${SLOT_DH}×${SLOT_WH} Slot`,7.5,'end',h2hs_sec.stroke,'bold');
     } else {
-      const ldLen=Math.max(sB2*0.6, 28);
-      s+=SL(hx,hy+fh/2+3,hx,hy+fh/2+14,h2hs_sec.stroke,.45);
-      s+=SL(hx,hy+fh/2+14,hx+ldLen,hy+fh/2+14,h2hs_sec.stroke,.45);
-      s+=ST(hx+ldLen+2,hy+fh/2+17,`${SLOT_DH}×${SLOT_WH} Slot`,7.5,'start',h2hs_sec.stroke,'bold');
+      // Z purlin BOT: ฉากขวา — clamp ปลาย leader ไม่เกิน maxX
+      const lblW=65; // ความกว้างโดยประมาณของ "18×22 Slot"
+      const ldMax=Math.max(maxX-hx-lblW-4, 4); // เว้น lblW ก่อนถึง maxX
+      const ldLen=Math.min(Math.max(sB2*0.5, 16), ldMax);
+      const lineY=hy+fh/2+14;
+      s+=SL(hx,hy+fh/2+3,hx,lineY,h2hs_sec.stroke,.45);
+      s+=SL(hx,lineY,hx+ldLen,lineY,h2hs_sec.stroke,.45);
+      s+=ST(hx+ldLen+2,lineY+3,`${SLOT_DH}×${SLOT_WH} Slot`,7.5,'start',h2hs_sec.stroke,'bold');
     }
   });
 
@@ -2004,7 +2008,7 @@ function generate(){
   if(wHoles.length>0||holes.length>0)
     s+=drawSection(secAx, secAy, H, B1, B2eff, D, secSc, wHoles, 'A - A', `1:${r(1/secSc,1)}`, true, isC);
   if(hasSecB)
-    s+=drawSection(secBx, secBy, H, B1, B2eff, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`, false, isC);
+    s+=drawSection(secBx, secBy, H, B1, B2eff, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`, false, isC, SCH_X-8);
 
   /* ══ HOLE SCHEDULE ══
      เรียงตาม X → ภายใน X เดียวกัน เรียง T,W,B
@@ -2070,26 +2074,30 @@ function generate(){
   });
 
   const schY=divY+6;
-  s+=SR(SCH_X-4,schY,SCH_W+4,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
-  s+=ST(SCH_X-4+(SCH_W+4)/2,schY+10,'HOLE SCHEDULE',8,'middle','#000','bold');
+  // ใช้พื้นที่ SCH_W ทั้งหมด (จาก SCH_X ถึง right margin)
+  const schedStartX=SCH_X-4;
+  const schedAvailW=SW-MR-schedStartX;
 
-  const scols=[
-    {h:'N',       w:18},
-    {h:'หน้า',    w:24},
-    {h:'X (mm)',  w:44},
-    {h:'Type',    w:28},
-    {h:'จำนวนรู', w:30},
-    {h:'Y (mm)',  w:40},
-    {h:'Shape',   w:72},  // ← fixed ลดลงจาก dynamic
+  // แบ่งคอลัมน์ให้กว้างเท่ากันตาม ratio — N และ หน้า แคบกว่า
+  const colDefs=[
+    {h:'N',       ratio:0.5},
+    {h:'หน้า',    ratio:0.7},
+    {h:'X (mm)',  ratio:1.2},
+    {h:'Type',    ratio:0.8},
+    {h:'จำนวนรู', ratio:0.8},
+    {h:'Y (mm)',  ratio:1.2},
+    {h:'Shape',   ratio:1.8},
   ];
-  const totalColW=scols.reduce((a,c)=>a+c.w,0);
-  // ชิดขวาเสมอ — คำนวณ startX จาก right edge
-  const schedRight=SW-MR-4;
-  const schedStartX=schedRight-totalColW;
+  const totalRatio=colDefs.reduce((a,c)=>a+c.ratio,0);
+  const unitW=schedAvailW/totalRatio;
+  const scols=colDefs.map(c=>({...c, w:Math.round(c.ratio*unitW)}));
+  // fix rounding: ปรับ col สุดท้ายให้รวมได้พอดี
+  const usedW=scols.slice(0,-1).reduce((a,c)=>a+c.w,0);
+  scols[scols.length-1].w=schedAvailW-usedW;
 
-  // อัปเดต schedule background ให้ครอบ totalColW พอดี
-  s+=SR(schedStartX,schY,totalColW,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
-  s+=ST(schedStartX+totalColW/2,schY+10,'HOLE SCHEDULE',8,'middle','#000','bold');
+  // Background + title
+  s+=SR(schedStartX,schY,schedAvailW,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
+  s+=ST(schedStartX+schedAvailW/2,schY+10,'HOLE SCHEDULE',8,'middle','#000','bold');
 
   const SCH_ROW_H=11;
   const thY2=schY+14;
@@ -2108,11 +2116,13 @@ function generate(){
     cx2=schedStartX;
     scols.forEach((col,j)=>{
       s+=SR(cx2,ry,col.w,SCH_ROW_H+2,'#ddd',.3,bg);
-      s+=ST(cx2+col.w/2,ry+SCH_ROW_H-1,vals[j],6,'middle','#111');
+      // font size ปรับตาม column width
+      const fs=col.w<28?5.5:col.w<40?6:6.5;
+      s+=ST(cx2+col.w/2,ry+SCH_ROW_H-1,vals[j],fs,'middle','#111');
       cx2+=col.w;
     });
   });
-  if(!schedRows.length) s+=ST(schedStartX+totalColW/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
+  if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
 
   /* ── HOLE TYPE LEGEND — มุมซ้ายล่างของ Section zone ── */
   {
