@@ -1222,18 +1222,7 @@ function drawTitleBlock(tb,purlinLabel,tbY,sheetNum=1,totalSheets=1){
     if(ap.val) s+=ST(ax+apvW/2,apvY+apvH*0.62,ap.val,9,'middle','#000','bold');
   });
 
-  // ── 3rd Angle Projection symbol — มุมบนขวาของ Right block ──
-  {
-    const sx=RX+RW-28, sy=TY+12;
-    const r1=6, r2=3.5;
-    // วงกลม (frustum body)
-    s+=`<circle cx="${r(sx-r1*1.7)}" cy="${r(sy)}" r="${r(r1)}" stroke="#999" stroke-width="0.7" fill="none"/>`;
-    s+=`<circle cx="${r(sx-r1*1.7)}" cy="${r(sy)}" r="2" fill="#999"/>`;
-    // trapezoid (view plane)
-    const tw=r1*1.0, th=r1*0.55;
-    s+=`<path d="M${r(sx-tw*0.15)},${r(sy-th)} L${r(sx+tw)},${r(sy-th)} L${r(sx+tw+r1*0.45)},${r(sy+th)} L${r(sx-tw*0.15)},${r(sy+th)} Z" stroke="#999" stroke-width="0.7" fill="none"/>`;
-    s+=ST(sx-r1*1.7,sy+r1+5,'3rd Angle',4.5,'middle','#bbb');
-  }
+  // ── 3rd Angle Projection symbol — วางหลัง RX ถูก declare ──
 
   // ── RIGHT: Drawing info ──
   const RX=TX+TW-RW;
@@ -1242,6 +1231,17 @@ function drawTitleBlock(tb,purlinLabel,tbY,sheetNum=1,totalSheets=1){
   s+=SL(RX,TY+R1,RX+RW,TY+R1,'#ccc',.4);
   s+=SL(RX,TY+R2,RX+RW,TY+R2,'#ccc',.4);
   s+=SL(RX+RW/2,TY+R1,RX+RW/2,TY+TH,'#ccc',.4);
+
+  // 3rd Angle Projection symbol — มุมบนขวาของ Right block (หลัง RX พร้อมใช้)
+  {
+    const sx=RX+RW-28, sy=TY+12;
+    const r1=6;
+    s+=`<circle cx="${r(sx-r1*1.7)}" cy="${r(sy)}" r="${r(r1)}" stroke="#999" stroke-width="0.7" fill="none"/>`;
+    s+=`<circle cx="${r(sx-r1*1.7)}" cy="${r(sy)}" r="2" fill="#999"/>`;
+    const tw=r1*1.0, th=r1*0.55;
+    s+=`<path d="M${r(sx-tw*0.15)},${r(sy-th)} L${r(sx+tw)},${r(sy-th)} L${r(sx+tw+r1*0.45)},${r(sy+th)} L${r(sx-tw*0.15)},${r(sy+th)} Z" stroke="#999" stroke-width="0.7" fill="none"/>`;
+    s+=ST(sx-r1*1.7,sy+r1+5,'3rd Angle',4.5,'middle','#bbb');
+  }
 
   s+=ST(RX+RW/2,TY+R1*0.28,'DRAWING NO.',6.5,'middle','#888');
   s+=ST(RX+RW/2,TY+R1*0.75,tb.no,13,'middle','#000','bold');
