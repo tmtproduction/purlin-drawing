@@ -180,7 +180,21 @@ select option{background:var(--panel)}
   <button class="ab-btn ab-ghost"    id="ab-signout"  onclick="doSignOut()"   style="display:none">Sign out</button>
 </div>
 
-<!-- ═══ PROJECT PANEL ═══ -->
+<!-- ═══ AUTH OVERLAY — บัง #main ถ้าไม่ได้ login หรือ pending ═══ -->
+<div id="auth-overlay" style="
+  position:fixed;inset:0;top:38px;z-index:8888;
+  background:rgba(13,17,23,0.96);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Rajdhani',sans-serif">
+  <div style="text-align:center;padding:40px;max-width:320px">
+    <div id="ao-icon" style="font-size:40px;margin-bottom:16px">🔒</div>
+    <div id="ao-title" style="color:#e6edf3;font-size:18px;font-weight:700;letter-spacing:1px;margin-bottom:8px">Z / C Purlin Drawing</div>
+    <div id="ao-sub" style="color:#8b949e;font-size:13px;margin-bottom:24px">กรุณาเข้าสู่ระบบก่อนใช้งาน</div>
+    <div id="ao-action"></div>
+  </div>
+</div>
+
+
 <div id="load-panel" onclick="if(event.target===this)toggleProjectPanel()">
   <div id="proj-modal-box">
     <div id="proj-modal-head">
@@ -320,6 +334,7 @@ select option{background:var(--panel)}
    FIREBASE AUTH + PROJECT SYSTEM
 ═══════════════════════════════════════════════════ */
 let _fbUser=null, _fbRole=null, _loadOpen=false, _myDocs={};
+let _approved=false; // global gate
 
 window.addEventListener('load',()=>{
   if(!window.$fn) return;
@@ -329,28 +344,79 @@ window.addEventListener('load',()=>{
       await _ensureUserDoc(user);
       const profile=await _getUserProfile(user.uid);
       _fbRole=profile?.role||'engineer';
-      _updateAuthUI(user,_fbRole,profile?.status||'pending');
-    } else { _fbRole=null; _updateAuthUI(null); }
+      const status=profile?.status||'pending';
+      _approved=(status==='approved');
+      _updateAuthUI(user,_fbRole,status);
+    } else {
+      _fbRole=null; _approved=false;
+      _updateAuthUI(null);
+    }
   });
 });
 
 function _updateAuthUI(user,role,status){
   const show=id=>document.getElementById(id).style.display='';
   const hide=id=>document.getElementById(id).style.display='none';
+  const overlay=document.getElementById('auth-overlay');
+  const aoIcon=document.getElementById('ao-icon');
+  const aoTitle=document.getElementById('ao-title');
+  const aoSub=document.getElementById('ao-sub');
+  const aoAction=document.getElementById('ao-action');
+
+  // ── ไม่ได้ login ──
   if(!user){
+    overlay.style.display='flex';
+    aoIcon.textContent='🔒';
+    aoTitle.textContent='Z / C Purlin Drawing';
+    aoSub.textContent='กรุณาเข้าสู่ระบบก่อนใช้งาน';
+    aoAction.innerHTML=`<button onclick="doSignIn()"
+      style="background:#58a6ff;color:#000;border:none;padding:10px 28px;
+      border-radius:4px;font-family:'Rajdhani',sans-serif;font-weight:700;
+      font-size:14px;cursor:pointer;letter-spacing:1px">
+      🔑 Sign in with Google
+    </button>`;
     show('ab-signin');
     ['ab-save','ab-load','ab-admin','ab-signout'].forEach(hide);
-    document.getElementById('ab-userinfo').textContent=''; return;
+    document.getElementById('ab-userinfo').textContent='';
+    return;
   }
+
   hide('ab-signin'); show('ab-load'); show('ab-signout');
+
+  // ── Pending ──
   if(status==='pending'){
+    overlay.style.display='flex';
+    aoIcon.textContent='⏳';
+    aoTitle.textContent='รอการอนุมัติ';
+    aoSub.innerHTML=`${user.email}<br><span style="font-size:11px;color:#6e7681">Admin จะอนุมัติภายใน 1 วันทำการ</span>`;
+    aoAction.innerHTML=`<button onclick="doSignOut()"
+      style="background:transparent;border:1px solid #21262d;color:#8b949e;
+      padding:6px 18px;border-radius:4px;font-size:12px;cursor:pointer">
+      Sign out
+    </button>`;
     document.getElementById('ab-userinfo').textContent=`⏳ รอ Admin อนุมัติ (${user.email})`;
-    ['ab-save','ab-admin'].forEach(hide); return;
+    ['ab-save','ab-admin'].forEach(hide);
+    return;
   }
+
+  // ── Rejected ──
   if(status==='rejected'){
+    overlay.style.display='flex';
+    aoIcon.textContent='❌';
+    aoTitle.textContent='ถูกปฏิเสธสิทธิ์';
+    aoSub.textContent=`${user.email}`;
+    aoAction.innerHTML=`<button onclick="doSignOut()"
+      style="background:transparent;border:1px solid #21262d;color:#8b949e;
+      padding:6px 18px;border-radius:4px;font-size:12px;cursor:pointer">
+      Sign out
+    </button>`;
     document.getElementById('ab-userinfo').textContent=`❌ ถูกปฏิเสธสิทธิ์ (${user.email})`;
-    ['ab-save','ab-admin'].forEach(hide); return;
+    ['ab-save','ab-admin'].forEach(hide);
+    return;
   }
+
+  // ── Approved ──
+  overlay.style.display='none';
   document.getElementById('ab-userinfo').textContent=`${user.displayName}  [${role}]`;
   if(role!=='operator') show('ab-save'); else hide('ab-save');
   if(role==='admin') show('ab-admin'); else hide('ab-admin');
@@ -369,6 +435,23 @@ async function _getUserProfile(uid){
   const {doc,getDoc}=window.$fn;
   const snap=await getDoc(doc(window.$db,'users',uid));
   return snap.exists()?snap.data():null;
+}
+
+/* ─── ACTIVITY LOG ─── */
+async function _logActivity(action, details={}){
+  if(!_fbUser||!window.$fn) return;
+  try{
+    const {collection,addDoc}=window.$fn;
+    await addDoc(collection(window.$db,'activity_logs'),{
+      uid:       _fbUser.uid,
+      email:     _fbUser.email,
+      name:      _fbUser.displayName||_fbUser.email,
+      role:      _fbRole||'engineer',
+      action,                         // 'generate' | 'save' | 'print'
+      details,                        // { purlinType, size, L, pages, ... }
+      ts:        Date.now()
+    });
+  }catch(e){ console.warn('log error',e); }
 }
 
 window.doSignIn = () => {
@@ -410,6 +493,9 @@ window.saveProject=async function(){
   try{
     const {collection,addDoc}=window.$fn;
     await addDoc(collection(window.$db,'projects'),payload);
+    _logActivity('save',{projName,pages:_pages.length,
+      type:document.getElementById('pType')?.value||'Z',
+      size:document.getElementById('pSize')?.value||''});
     alert(`✅ บันทึก Project "${projName}" (${_pages.length} sheets) สำเร็จ`);
   }catch(e){ alert('❌ '+e.message); }
 };
@@ -682,43 +768,42 @@ const ARR=(x,y,dx,dy,c=CDIM)=>{
 // dimY    = Y ของ dimension line
 function DH(x1,x2,dimY,lbl,c=CDIM,originY=null){
   const span=Math.abs(x2-x1), mid=(x1+x2)/2;
-  const GAP=1.5, OVER=2; // extension line: gap from object, overshoot past dim line
+  const GAP=1.5, OVER=2;
   let s='';
 
-  // Extension lines (เส้นบาง)
+  // Extension lines
   if(originY!==null){
-    // มี origin → ลากจาก originY+GAP ถึง dimY+OVER (หรือ -OVER ถ้า dim อยู่บน)
     const goUp=dimY<originY;
     const y0=goUp?originY-GAP:originY+GAP;
     const y1=goUp?dimY-OVER:dimY+OVER;
     s+=SL(x1,y0,x1,y1,c,.4);
     s+=SL(x2,y0,x2,y1,c,.4);
   } else {
-    // ไม่มี origin → extension line สั้น ±5px
     s+=SL(x1,dimY-5,x1,dimY+5,c,.4);
     s+=SL(x2,dimY-5,x2,dimY+5,c,.4);
   }
 
-  // Dimension line + arrowheads
-  s+=SL(x1,dimY,x2,dimY,c,.45);
+  // Arrowheads (เสมอ)
   s+=ARR(x1,dimY,1,0,c)+ARR(x2,dimY,-1,0,c);
 
-  // Label (ตัวเลขเหนือ dim line 1.5px)
   const sz=span<22?6:span<45?7:8;
   const lblW=lbl.length*sz*0.62;
-  if(span < lblW+8){
-    // แคบเกิน → ตัวเลขออกนอกด้านขวา มี leader เล็ก
+
+  if(span < lblW+12){
+    // แคบเกิน → เส้นเต็ม + text ออกขวา
+    s+=SL(x1,dimY,x2,dimY,c,.45);
     s+=SL(x2+2,dimY,x2+10,dimY,c,.35);
     s+=ST(x2+12,dimY+3,lbl,7,'start',c);
   } else {
-    s+=ST(mid,dimY-2.5,lbl,sz,'middle',c);
+    // BREAK LINE: ตัดเส้นตรงกลาง เว้นช่องให้ label
+    const hg=lblW/2+3;
+    s+=SL(x1,dimY,mid-hg,dimY,c,.45);
+    s+=SL(mid+hg,dimY,x2,dimY,c,.45);
+    s+=ST(mid,dimY-3,lbl,sz,'middle',c);
   }
   return s;
 }
 
-// Vertical dim — with proper extension lines (aligned style: label หมุน -90°)
-// originX = X ของขอบรูป
-// dimX    = X ของ dimension line (อยู่นอกรูป)
 function DV(dimX,y1,y2,lbl,c=CDIM,originX=null,lblSz=7.5){
   const span=Math.abs(y2-y1), mid=(y1+y2)/2;
   const GAP=1.5, OVER=2;
@@ -736,18 +821,30 @@ function DV(dimX,y1,y2,lbl,c=CDIM,originX=null,lblSz=7.5){
     s+=SL(dimX-5,y2,dimX+5,y2,c,.4);
   }
 
-  // Dimension line + arrowheads
-  s+=SL(dimX,y1,dimX,y2,c,.45);
+  // Arrowheads (เสมอ)
   s+=ARR(dimX,y1,0,1,c)+ARR(dimX,y2,0,-1,c);
 
-  // Label — กึ่งกลางเส้น dim เสมอ (หมุน -90°)
+  // Label
+  const lblH=lbl.length*lblSz*0.62; // ความสูงของ text เมื่อหมุน -90°
+
   if(span<16){
-    // แคบเกิน → label ออกด้านข้าง horizontal
+    // แคบมาก → ออกด้านข้าง horizontal
+    s+=SL(dimX,y1,dimX,y2,c,.45);
+    const lx=goLeft?dimX-13:dimX+13;
+    s+=SL(dimX,mid,lx,mid,c,.3);
+    s+=ST(lx+(goLeft?-2:2),mid+3,lbl,Math.max(lblSz-1,6),goLeft?'end':'start',c);
+  } else if(span < lblH+12){
+    // แคบเกิน → เส้นเต็ม + text ออกด้านข้าง
+    s+=SL(dimX,y1,dimX,y2,c,.45);
     const lx=goLeft?dimX-13:dimX+13;
     s+=SL(dimX,mid,lx,mid,c,.3);
     s+=ST(lx+(goLeft?-2:2),mid+3,lbl,Math.max(lblSz-1,6),goLeft?'end':'start',c);
   } else {
-    // label กึ่งกลางเส้น dim (ox=dimX, mid=center Y)
+    // BREAK LINE: ตัดเส้นตรงกลาง เว้นช่องให้ label
+    const hg=lblH/2+3;
+    s+=SL(dimX,y1,dimX,mid-hg,c,.45);
+    s+=SL(dimX,mid+hg,dimX,y2,c,.45);
+    // text อยู่กึ่งกลางช่องที่ตัด หมุน -90°
     s+=ST(dimX,mid,lbl,lblSz,'middle',c,'normal',`rotate(-90,${r(dimX)},${r(mid)})`);
   }
   return s;
@@ -817,11 +914,16 @@ function chainDim(pts, dimY, c=CDIM, originY=null){
 
     const sz=span<22?6:span<50?7:8;
     const lblW=lbl.length*sz*0.62;
-    if(span<lblW+6){
+    if(span<lblW+12){
       // แคบ → ออกนอก
-      s+=SL(x2,y,x2+8,y,c,.3);
+      s+=SL(x1,y,x2,y,c,.45);
+      s+=SL(x2+2,y,x2+8,y,c,.3);
       s+=ST(x2+10,y+3,lbl,7,'start',c);
     } else {
+      // BREAK LINE: ตัดเส้นตรงกลาง เว้นช่อง label
+      const hg=lblW/2+3;
+      s+=SL(x1,y,mid-hg,y,c,.45);
+      s+=SL(mid+hg,y,x2,y,c,.45);
       s+=ST(mid,y-3*sign,lbl,sz,'middle',c);
     }
   });
@@ -2242,6 +2344,7 @@ window.deletePage=function(idx){
 };
 
 window.printAll=function(){
+  if(!_approved){ alert('กรุณาเข้าสู่ระบบและได้รับการอนุมัติก่อนใช้งาน'); return; }
   // บันทึก state page ปัจจุบัน + generate
   _pages[_curPage]={..._pages[_curPage],..._captureState()};
   generate();
@@ -2280,7 +2383,13 @@ window.printAll=function(){
       </svg>
     </div>`).join('');
 
-  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ window.print(); }); });
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+    const drawNo=document.getElementById('tbNo')?.value||'';
+    _logActivity('print',{pages:pagesToPrint.length,drawNo,
+      type:document.getElementById('pType')?.value||'Z',
+      size:document.getElementById('pSize')?.value||''});
+    window.print();
+  }); });
 };
 
 /* ── Auto-generate (debounced, after first press) ── */
@@ -2293,7 +2402,19 @@ document.getElementById('panel').addEventListener('input',()=>{
   clearTimeout(_deb); _deb=setTimeout(generate,700);
 });
 const _G=generate;
-window.generate=function(){_g0=true;_G();};
+window.generate=function(){
+  if(!_approved){ alert('กรุณาเข้าสู่ระบบและได้รับการอนุมัติก่อนใช้งาน'); return; }
+  _g0=true; _G();
+  // Log generate (debounced — ไม่ log ทุก auto-refresh)
+  clearTimeout(window._logGenTimer);
+  window._logGenTimer=setTimeout(()=>{
+    const L=document.getElementById('pL')?.value;
+    const H=document.getElementById('pH')?.value;
+    const type=document.getElementById('pType')?.value||'Z';
+    const size=document.getElementById('pSize')?.value||'';
+    _logActivity('generate',{type,size,H,L,pages:_pages.length});
+  },2000);
+};
 
 /* ── Init ── */
 // สร้าง Page 1 เริ่มต้น
