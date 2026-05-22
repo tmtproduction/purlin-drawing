@@ -1222,36 +1222,51 @@ function drawSection(sec_cx,sec_cy,H,B1,B2,D,sc,holes,label,scaleStr,isPrimary=t
   const h1s=webH.filter(h=>h.holeType==='H1');
   if(h1s.length>=2){
     const ys=h1s.map(h=>sec_cy-h.Y*sc).sort((a,b)=>a-b);
-    const glX=sec_cx+sB2+58;
+    // Z: gauge dim ออกขวา (B2 side); C: ออกขวาจาก web edge (sec_cx)
+    const glX=isC ? sec_cx+22 : sec_cx+sB2+58;
     s+=DV(glX,ys[0],ys[1],`GL=${fmt(getTMTRow(H).GL)}`,CDIM,null,6.5);
     s+=ST(glX+10,(ys[0]+ys[1])/2,'Gauge',6,'start','#555','normal',
       `rotate(-90,${r(glX+10)},${r((ys[0]+ys[1])/2)})`);
   }
 
-  // ── FLANGE HOLES (TOP/BOT) ── เป็น rect บน flange
+  // ── FLANGE HOLES (TOP/BOT) ──
   holes.filter(h=>h.face==='TOP').forEach(hole=>{
+    // Z: B1 ยื่นซ้าย → center = sec_cx - sB1/2
+    // C: B1 ยื่นซ้าย → center = sec_cx - sB1/2 (เหมือนกัน)
     const hx=sec_cx-sB1/2, hy=sec_cy-sH;
-    const fw=Math.max(SLOT_WH*sc*0.5,8), fh=Math.max(SLOT_DH*sc*0.4,4);
+    const fw=Math.max(SLOT_WH*sc*0.5,8);
     s+=`<rect x="${r(hx-fw/2)}" y="${r(hy-t_px)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
-    // label ออกซ้าย ห่างจาก profile
     const ldLen=Math.max(sB1*0.7, 30);
     s+=SL(hx,hy-t_px-3,hx,hy-t_px-16,CDIM,.45);
     s+=SL(hx,hy-t_px-16,hx-ldLen,hy-t_px-16,CDIM,.45);
     s+=ST(hx-ldLen-2,hy-t_px-13,`${SLOT_DH}×${SLOT_WH} Slot`,8,'end',CDIM);
   });
   holes.filter(h=>h.face==='BOT').forEach(hole=>{
-    const hx=sec_cx+sB2/2, hy=sec_cy;
-    const fw=Math.max(SLOT_WH*sc*0.5,8), fh=Math.max(SLOT_DH*sc*0.4,4);
+    // Z: B2 ยื่นขวา → center = sec_cx + sB2/2
+    // C: B2 ยื่นซ้าย (เหมือน B1) → center = sec_cx - sB2/2
+    const hx=isC ? sec_cx-sB2/2 : sec_cx+sB2/2;
+    const hy=sec_cy;
+    const fw=Math.max(SLOT_WH*sc*0.5,8);
     s+=`<rect x="${r(hx-fw/2)}" y="${r(hy)}" width="${r(fw)}" height="${r(t_px)}" fill="white" stroke="${COUT}" stroke-width="0.6" rx="1"/>`;
-    // label ออกขวา ห่างจาก profile
-    const ldLen=Math.max(sB2*0.7, 30);
-    s+=SL(hx,hy+t_px+3,hx,hy+t_px+16,CDIM,.45);
-    s+=SL(hx,hy+t_px+16,hx+ldLen,hy+t_px+16,CDIM,.45);
-    s+=ST(hx+ldLen+2,hy+t_px+19,`${SLOT_DH}×${SLOT_WH} Slot`,8,'start',CDIM);
+    if(isC){
+      // C: label ออกซ้าย (ทิศเดียวกับ TOP)
+      const ldLen=Math.max(sB2*0.7, 30);
+      s+=SL(hx,hy+t_px+3,hx,hy+t_px+16,CDIM,.45);
+      s+=SL(hx,hy+t_px+16,hx-ldLen,hy+t_px+16,CDIM,.45);
+      s+=ST(hx-ldLen-2,hy+t_px+19,`${SLOT_DH}×${SLOT_WH} Slot`,8,'end',CDIM);
+    } else {
+      // Z: label ออกขวา
+      const ldLen=Math.max(sB2*0.7, 30);
+      s+=SL(hx,hy+t_px+3,hx,hy+t_px+16,CDIM,.45);
+      s+=SL(hx,hy+t_px+16,hx+ldLen,hy+t_px+16,CDIM,.45);
+      s+=ST(hx+ldLen+2,hy+t_px+19,`${SLOT_DH}×${SLOT_WH} Slot`,8,'start',CDIM);
+    }
   });
 
   // Label
-  const lx=sec_cx+(sB2-sB1)/2;
+  // Z: center = sec_cx + (sB2-sB1)/2  (shift right because B2 is wider/right)
+  // C: center = sec_cx - sB1/2        (both flanges left, center on flange)
+  const lx=isC ? sec_cx-sB1/2 : sec_cx+(sB2-sB1)/2;
   s+=ST(lx,sec_cy+52,'SECTION  '+label,8,'middle','#000','bold');
   s+=ST(lx,sec_cy+63,'SCALE  '+scaleStr,7,'middle','#666');
   return s;
