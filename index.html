@@ -246,10 +246,11 @@ select option{background:var(--panel)}
         <tr>
           <th style="width:24px">Qty</th>
           <th style="width:32px">หน้า</th>
-          <th style="width:52px">X (mm)</th>
-          <th style="width:56px">Type</th>
-          <th style="width:44px">Y (mm)</th>
-          <th style="width:42px">Ø / Shape</th>
+          <th style="width:48px" title="ตำแหน่งจากปลายซ้าย">X (mm)</th>
+          <th style="width:44px" title="ระยะห่างจากรูก่อนหน้า (คำนวณจาก X)">SP (mm)</th>
+          <th style="width:50px">Type</th>
+          <th style="width:40px">Y (mm)</th>
+          <th style="width:38px">Ø/Shape</th>
           <th style="width:18px"></th>
         </tr>
       </thead>
@@ -1211,30 +1212,28 @@ function drawTitleBlock(tb,purlinLabel,tbY,sheetNum=1,totalSheets=1){
   const apvDefs=[
     {lbl:'DRAWN BY',         val:tb.by||'—'},
     {lbl:'TMT APPROVE',      val:''},
-    {lbl:'CUSTOMER APPROVE', val:'', thirdAngle:true},
+    {lbl:'CUSTOMER APPROVE', val:''},
   ];
   apvDefs.forEach((ap,i)=>{
     const ax=MX+i*apvW;
     if(i>0) s+=SL(ax,apvY,ax,apvY+apvH,'#ccc',.4);
-
-    // Third Angle Projection symbol เหนือ "Customer Approve"
-    if(ap.thirdAngle){
-      const sx=ax+apvW/2, sy=apvY+apvH*0.45;
-      const r1=5.5, r2=3;
-      // วงกลมใหญ่ (frustum body)
-      s+=`<circle cx="${r(sx-r1*1.6)}" cy="${r(sy)}" r="${r(r1)}" stroke="#888" stroke-width="0.65" fill="none"/>`;
-      // frustum trapezoid ขวา (side face)
-      const tw=r1*1.1, th=r1*0.6;
-      s+=`<path d="M${r(sx+r2*0.5)},${r(sy-th)} L${r(sx+tw)},${r(sy-th)} L${r(sx+tw+r1*0.4)},${r(sy+th)} L${r(sx+r2*0.5)},${r(sy+th)} Z" stroke="#888" stroke-width="0.65" fill="none"/>`;
-      // dot (projection indicator)
-      s+=`<circle cx="${r(sx-r1*1.6)}" cy="${r(sy)}" r="1.5" fill="#888"/>`;
-      s+=ST(ax+apvW/2,apvY+apvH*0.62,'3rd Angle',5,'middle','#aaa');
-    }
-
     s+=ST(ax+apvW/2,apvY+apvH*0.22,ap.lbl,5.5,'middle','#888','bold');
     s+=SL(ax+8,apvY+apvH*0.72,ax+apvW-8,apvY+apvH*0.72,'#ccc',.5);
     if(ap.val) s+=ST(ax+apvW/2,apvY+apvH*0.62,ap.val,9,'middle','#000','bold');
   });
+
+  // ── 3rd Angle Projection symbol — มุมบนขวาของ Right block ──
+  {
+    const sx=RX+RW-28, sy=TY+12;
+    const r1=6, r2=3.5;
+    // วงกลม (frustum body)
+    s+=`<circle cx="${r(sx-r1*1.7)}" cy="${r(sy)}" r="${r(r1)}" stroke="#999" stroke-width="0.7" fill="none"/>`;
+    s+=`<circle cx="${r(sx-r1*1.7)}" cy="${r(sy)}" r="2" fill="#999"/>`;
+    // trapezoid (view plane)
+    const tw=r1*1.0, th=r1*0.55;
+    s+=`<path d="M${r(sx-tw*0.15)},${r(sy-th)} L${r(sx+tw)},${r(sy-th)} L${r(sx+tw+r1*0.45)},${r(sy+th)} L${r(sx-tw*0.15)},${r(sy+th)} Z" stroke="#999" stroke-width="0.7" fill="none"/>`;
+    s+=ST(sx-r1*1.7,sy+r1+5,'3rd Angle',4.5,'middle','#bbb');
+  }
 
   // ── RIGHT: Drawing info ──
   const RX=TX+TW-RW;
@@ -1287,12 +1286,71 @@ function addHole(qty=1,face='WEB',X='',holeType='H1',yOverride=null){
   tr.innerHTML=`
     <td><input type="number" value="${qty}" min="1" max="50" style="width:100%;text-align:center"></td>
     <td><select class="face-sel" onchange="onFaceChange(this)">${faceOpts}</select></td>
-    <td><input type="number" value="${X}" placeholder="0" min="0" step="1"></td>
+    <td><input class="x-inp" type="number" value="${X}" placeholder="X" min="0" step="1"
+      oninput="calcSP(this)" style="width:100%"></td>
+    <td><input class="sp-inp" type="number" placeholder="SP" min="0" step="1"
+      oninput="calcX(this)" style="width:100%;color:#58a6ff"></td>
     <td><select class="type-sel" onchange="onTypeChange(this)">${typeOpts}</select></td>
     <td class="y-disp" style="font-size:8px;text-align:center;padding:2px;color:#888;white-space:nowrap;overflow:hidden">${autoYDisplay}</td>
     <td class="dia-cell" style="font-size:8px;text-align:center;padding:2px;color:#888">${lookupDia(holeType)}</td>
-    <td><button class="dbtn" onclick="document.getElementById('${id}').remove()">✕</button></td>`;
+    <td><button class="dbtn" onclick="document.getElementById('${id}').remove();recalcAllSP()">✕</button></td>`;
   document.getElementById('htbody').appendChild(tr);
+  recalcAllSP(); // อัปเดต SP ของทุกแถวหลังเพิ่ม
+}
+
+/* ── SP ↔ X two-way calculation ── */
+function getPrevX(tr){
+  // หา X ของแถวก่อนหน้า
+  const rows=Array.from(document.getElementById('htbody').querySelectorAll('tr'));
+  const idx=rows.indexOf(tr);
+  if(idx<=0) return 0;
+  return parseFloat(rows[idx-1].querySelector('.x-inp').value)||0;
+}
+
+function calcSP(xInp){
+  // user พิมพ์ X → คำนวณ SP
+  const tr=xInp.closest('tr');
+  const xVal=parseFloat(xInp.value);
+  const prevX=getPrevX(tr);
+  const spInp=tr.querySelector('.sp-inp');
+  if(!isNaN(xVal)){
+    spInp.value=Math.round(xVal-prevX);
+  } else {
+    spInp.value='';
+  }
+  // อัปเดต SP ของแถวถัดไปด้วย
+  recalcAllSP();
+  if(_g0){ clearTimeout(_deb); _deb=setTimeout(generate,700); }
+}
+
+function calcX(spInp){
+  // user พิมพ์ SP → คำนวณ X
+  const tr=spInp.closest('tr');
+  const spVal=parseFloat(spInp.value);
+  const prevX=getPrevX(tr);
+  const xInp=tr.querySelector('.x-inp');
+  if(!isNaN(spVal)){
+    xInp.value=Math.round(prevX+spVal);
+  } else {
+    xInp.value='';
+  }
+  recalcAllSP();
+  if(_g0){ clearTimeout(_deb); _deb=setTimeout(generate,700); }
+}
+
+function recalcAllSP(){
+  // อัปเดต SP ทุกแถว จาก X ปัจจุบัน (ไม่รบกวนถ้า user กำลังพิมพ์)
+  const rows=Array.from(document.getElementById('htbody').querySelectorAll('tr'));
+  rows.forEach((tr,i)=>{
+    const xInp=tr.querySelector('.x-inp');
+    const spInp=tr.querySelector('.sp-inp');
+    if(!xInp||!spInp) return;
+    if(document.activeElement===spInp) return; // user กำลังพิมพ์ SP อยู่ → ข้าม
+    const xVal=parseFloat(xInp.value);
+    const prevX=i===0?0:(parseFloat(rows[i-1].querySelector('.x-inp').value)||0);
+    if(!isNaN(xVal)) spInp.value=Math.round(xVal-prevX);
+    else spInp.value='';
+  });
 }
 
 function onFaceChange(sel){
@@ -1855,7 +1913,12 @@ function generate(){
   // ใช้ rawHoles เพื่อ deduplicate H2 (TOP+BOT ที่ X เดียวกัน = 1 row)
   const rawRows=Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>{
     const inp=tr.querySelectorAll('input,select');
-    return{qty:+inp[0].value||1, face:inp[1].value, X:parseFloat(inp[2].value)||0, holeType:inp[3].value};
+    // inp[0]=qty, inp[1]=face(select), inp[2]=X(.x-inp), inp[3]=SP(.sp-inp), inp[4]=type(select)
+    const qty=+inp[0].value||1;
+    const face=tr.querySelector('.face-sel')?.value||'WEB';
+    const X=parseFloat(tr.querySelector('.x-inp')?.value)||0;
+    const holeType=tr.querySelector('.type-sel')?.value||'H1';
+    return{qty,face,X,holeType};
   });
 
   // สร้าง schedule rows ที่ถูกต้อง
@@ -1893,9 +1956,12 @@ function generate(){
     }
   });
 
-  // เรียง: X น้อย→มาก, ภายใน X เดียวกัน เรียง T→W→B
-  const faceOrder={'T':0,'W':1,'B':2};
-  schedRows.sort((a,b)=>a.X!==b.X ? a.X-b.X : (faceOrder[a.face]??1)-(faceOrder[b.face]??1));
+  // เรียง: T → B → W, ภายใน face เดียวกัน เรียง X น้อย→มาก
+  const faceOrder={'T':0,'B':1,'W':2};
+  schedRows.sort((a,b)=>{
+    const fo=(faceOrder[a.face]??2)-(faceOrder[b.face]??2);
+    return fo!==0 ? fo : a.X-b.X;
+  });
 
   const schY=divY+6;
   s+=SR(SCH_X-4,schY,SCH_W+4,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
@@ -1958,8 +2024,12 @@ function _captureState(){
   const inputs={};
   ids.forEach(id=>{const el=document.getElementById(id); if(el) inputs[id]=el.value;});
   const holes=Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>{
-    const inp=tr.querySelectorAll('input,select');
-    return{qty:inp[0].value,face:inp[1].value,X:inp[2].value,holeType:inp[3].value};
+    return{
+      qty: tr.querySelector('input[type=number]')?.value||1,
+      face: tr.querySelector('.face-sel')?.value||'WEB',
+      X:   tr.querySelector('.x-inp')?.value||'',
+      holeType: tr.querySelector('.type-sel')?.value||'H1'
+    };
   });
   const svg=document.getElementById('svg-out').innerHTML;
   return{inputs,holes,svg};
@@ -1974,6 +2044,7 @@ function _applyState(st){
   });
   document.getElementById('htbody').innerHTML=''; _hcnt=0;
   (st.holes||[]).forEach(h=>addHole(+h.qty||1,h.face||'WEB',h.X||'',h.holeType||'H1'));
+  recalcAllSP();
   if(st.svg) document.getElementById('svg-out').innerHTML=st.svg;
 }
 
