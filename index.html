@@ -1385,6 +1385,10 @@ function addHole(qty=1,face='WEB',X='',holeType='H1',yOverride=null){
                     :holeType==='H2'?'B1+B2'
                     :holeType==='H3'?`${Math.round(_H/2)}`:'auto';
 
+  // ช่อง Y: WEB types กรอกได้, flange types (H2/TOP/BOT) แสดงค่าคงที่
+  const isFlange=(holeType==='H2'||face==='TOP'||face==='BOT');
+  const yVal=yOverride!==null?yOverride:'';
+
   tr.innerHTML=`
     <td><input type="number" value="${qty}" min="1" max="50" style="width:100%;text-align:center"></td>
     <td><select class="face-sel" onchange="onFaceChange(this)">${faceOpts}</select></td>
@@ -1393,7 +1397,13 @@ function addHole(qty=1,face='WEB',X='',holeType='H1',yOverride=null){
     <td><input class="sp-inp" type="number" placeholder="SP" min="0" step="1"
       oninput="calcX(this)" style="width:100%;color:#58a6ff"></td>
     <td><select class="type-sel" onchange="onTypeChange(this)">${typeOpts}</select></td>
-    <td class="y-disp" style="font-size:8px;text-align:center;padding:2px;color:#888;white-space:nowrap;overflow:hidden">${autoYDisplay}</td>
+    <td><input class="y-inp" type="text" value="${yVal}"
+      placeholder="${autoYDisplay}"
+      ${isFlange?'readonly tabindex="-1"':''}
+      style="width:100%;font-size:8px;text-align:center;
+        ${isFlange?'color:#555;cursor:default;':'color:#f0d080;'}
+        background:transparent;border:none;padding:2px"
+      oninput="if(_g0){clearTimeout(_deb);_deb=setTimeout(generate,700)}"></td>
     <td class="dia-cell" style="font-size:8px;text-align:center;padding:2px;color:#888">${lookupDia(holeType)}</td>
     <td><button class="dbtn" onclick="document.getElementById('${id}').remove();recalcAllSP()">✕</button></td>`;
   document.getElementById('htbody').appendChild(tr);
@@ -1468,12 +1478,18 @@ function onTypeChange(sel){
   const H=+document.getElementById('pH').value||152;
   const row=getTMTRow(H);
   tr.querySelector('.dia-cell').textContent=lookupDia(sel.value);
-  const yDisp=tr.querySelector('.y-disp');
-  if(yDisp){
-    if(sel.value==='H1') yDisp.textContent=`${fmt(H/2-row.GL/2)}/${fmt(H/2+row.GL/2)}`;
-    else if(sel.value==='H2') yDisp.textContent='B1+B2';
-    else if(sel.value==='H3') yDisp.textContent=`${Math.round(H/2)}`;
-    else yDisp.textContent='auto';
+  const yInp=tr.querySelector('.y-inp');
+  if(yInp){
+    const isFlange=(sel.value==='H2'||sel.value==='TOP'||sel.value==='BOT');
+    let autoY='auto';
+    if(sel.value==='H1')      autoY=`${fmt(H/2-row.GL/2)}/${fmt(H/2+row.GL/2)}`;
+    else if(sel.value==='H2') autoY='B1+B2';
+    else if(sel.value==='H3') autoY=`${Math.round(H/2)}`;
+    yInp.placeholder=autoY;
+    yInp.readOnly=isFlange;
+    yInp.style.cursor=isFlange?'default':'text';
+    yInp.style.color=isFlange?'#555':'#f0d080';
+    if(isFlange) yInp.value=''; // reset เมื่อเปลี่ยนเป็น flange type
   }
 }
 
@@ -1507,9 +1523,19 @@ function getHoles(){
     const face = tr.querySelector('.face-sel')?.value||'WEB';
     const X    = parseFloat(tr.querySelector('.x-inp')?.value)||0;
     const holeType = tr.querySelector('.type-sel')?.value||'H1';
+    const yRaw = tr.querySelector('.y-inp')?.value.trim()||'';
 
     if(holeType==='H1'){
-      const subs=h1Holes(H);
+      // ถ้า user กรอก Y เอง: รองรับรูปแบบ "Y1/Y2" หรือ "Y1" (single)
+      let subs;
+      if(yRaw && yRaw!==''){
+        const parts=yRaw.split('/').map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
+        subs=parts.length>=2
+          ? [{Y:parts[0]},{Y:parts[1]}]
+          : parts.length===1 ? [{Y:parts[0]}] : h1Holes(H);
+      } else {
+        subs=h1Holes(H); // ใช้ค่า GL จาก catalog
+      }
       subs.forEach(sub=>{
         result.push({qty,face:'WEB',X,Y:sub.Y,dia:SLOT_DH,slot:true,slotW:SLOT_WH,
           holeType:'H1',glSpan:sub.glSpan||null,_xPos:[X]});
@@ -1518,7 +1544,8 @@ function getHoles(){
       result.push({qty,face:'TOP',X,Y:0,dia:SLOT_DH,slot:true,slotW:SLOT_WH,holeType:'H2',_xPos:[X]});
       result.push({qty,face:'BOT',X,Y:0,dia:SLOT_DH,slot:true,slotW:SLOT_WH,holeType:'H2',_xPos:[X]});
     } else if(holeType==='H3'){
-      result.push({qty,face:'WEB',X,Y:Math.round(H/2),dia:18,slot:false,holeType:'H3',_xPos:[X]});
+      const Yval = yRaw ? parseFloat(yRaw)||Math.round(H/2) : Math.round(H/2);
+      result.push({qty,face:'WEB',X,Y:Yval,dia:18,slot:false,holeType:'H3',_xPos:[X]});
     } else {
       result.push({qty,face,X,Y:0,dia:SLOT_DH,slot:true,slotW:SLOT_WH,holeType,_xPos:[X]});
     }
@@ -2140,6 +2167,7 @@ function _captureState(){
       qty: tr.querySelector('input[type=number]')?.value||1,
       face: tr.querySelector('.face-sel')?.value||'WEB',
       X:   tr.querySelector('.x-inp')?.value||'',
+      Y:   tr.querySelector('.y-inp')?.value||'',
       holeType: tr.querySelector('.type-sel')?.value||'H1'
     };
   });
@@ -2155,7 +2183,7 @@ function _applyState(st){
     if(el&&st.inputs&&st.inputs[id]!==undefined) el.value=st.inputs[id];
   });
   document.getElementById('htbody').innerHTML=''; _hcnt=0;
-  (st.holes||[]).forEach(h=>addHole(+h.qty||1,h.face||'WEB',h.X||'',h.holeType||'H1'));
+  (st.holes||[]).forEach(h=>addHole(+h.qty||1,h.face||'WEB',h.X||'',h.holeType||'H1',h.Y||null));
   recalcAllSP();
   if(st.svg) document.getElementById('svg-out').innerHTML=st.svg;
 }
