@@ -71,6 +71,11 @@ onAuthStateChanged(auth, async user => {
 window.doSignIn  = () => signInWithPopup(auth, gp).catch(e => alert(e.message));
 window.doSignOut = () => signOut(auth).then(() => location.reload());
 
+// expose Firestore helpers ให้ regular <script> ใช้ได้
+window._db = db;
+window._getDocs  = getDocs;
+window._collection = collection;
+
 // ─── TABS ───
 window.switchTab = tab => {
   document.querySelectorAll('.tab-btn').forEach(b =>
@@ -691,7 +696,7 @@ window.loadLogs=async function(filterAction=''){
   const tbody=document.getElementById('logs-tbody');
   tbody.innerHTML=`<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:20px">กำลังโหลด...</td></tr>`;
   try{
-    const snap=await getDocs(collection(db,'activity_logs'));
+    const snap=await window._getDocs(window._collection(window._db,'activity_logs'));
     let docs=[];
     snap.forEach(d=>docs.push({id:d.id,...d.data()}));
     docs.sort((a,b)=>(b.ts||0)-(a.ts||0));
