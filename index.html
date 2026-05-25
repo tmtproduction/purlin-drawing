@@ -2561,6 +2561,43 @@ function _3dMakeSlot(dh,wh,depth,htype){
   return g;
 }
 
+/* ── C PURLIN 3D PROFILE ──
+   C-shape: web vertical, both flanges ยื่นซ้าย (same direction)
+   B1=B2=F, lips fold inward
+   ox,oy = web right edge bottom (same convention as Z)
+── */
+function _3dBuildProfileC(H,F,D,t){
+  const s=new THREE.Shape();
+  const R=Math.min(t*1.5,5);
+  const hw=t/2;
+
+  // C-profile: web at right, both flanges ยื่นซ้าย (−x)
+  // Bottom flange lip (ขึ้นเข้าหา web)
+  s.moveTo(-F,   D    );  // bottom lip tip (up = inward)
+  s.lineTo(-F,   t    );  // bottom flange
+  s.lineTo(-hw-R,t    );
+  s.quadraticCurveTo(-hw,t,-hw,t+R);        // inner corner bot-right
+  s.lineTo(-hw,  H-t-R);
+  s.quadraticCurveTo(-hw,H-t,-hw+R,H-t);   // inner corner top-right
+  s.lineTo(-F+t+R,H-t );
+  s.quadraticCurveTo(-F+t,H-t,-F+t,H-t+R); // outer corner top-left
+  s.lineTo(-F+t, H    );
+  s.lineTo(-F,   H    );  // top flange outer tip
+  s.lineTo(-F,   H-D  );  // top lip tip (down = inward)
+  s.lineTo(-F+t, H-D  );
+  s.lineTo(-F+t, H-t  );  // back to top flange inner
+  s.lineTo(-hw-R,H-t  );
+  s.quadraticCurveTo(-hw,H-t,-hw,H-t-R);   // inner web corner
+  s.lineTo(-hw,  t+R  );
+  s.quadraticCurveTo(-hw,t,-hw+R,t);       // inner bot corner
+  s.lineTo(-F+t+R,t   );
+  s.quadraticCurveTo(-F+t,t,-F+t,t-R);
+  s.lineTo(-F+t, D    );  // bottom lip inner
+  s.lineTo(-F,   D    );  // close
+  s.closePath();
+  return s;
+}
+
 function _3dBuildScene(){
   while(_3d.sc.children.length>0) _3d.sc.remove(_3d.sc.children[0]);
   const sc=_3d.sc;
@@ -2584,28 +2621,40 @@ function _3dBuildScene(){
 
 function _3dRebuild(){
   const e=id=>+document.getElementById(id)?.value||0;
-  const H=e('pH')||152, B1=e('pB1')||65, B2=e('pB2')||65;
+  const type=_purlType||'Z';
+  const H=e('pH')||152, B1=e('pB1')||65, B2=type==='C'?e('pB1')||65:e('pB2')||65;
   const D=e('pD')||20, t=e('pt')||2.3, L=e('pL')||6000;
   const SC=0.5;
   document.getElementById('lbl3d').textContent=
-    `Z-${H}\u00d7${B1}\u00d7${B2}\u00d7${D}\u00d7${t} / L=${L}mm`;
+    `${type}-${H}\u00d7${B1}${type==='Z'?'\u00d7'+B2:''}\u00d7${D}\u00d7${t} / L=${L}mm`;
 
   const sc=_3d.sc;
   if(_3d.grp){sc.remove(_3d.grp);}
   _3d.grp=new THREE.Group();
 
-  // Galvanized material
   const galvMat=new THREE.MeshPhongMaterial({
     color:0xccd4dc,specular:0xffffff,shininess:300,emissive:0x060a10,side:THREE.DoubleSide
   });
 
-  // Use corrected profile
-  const shape=_3dBuildProfileCorrect(H*SC,B1*SC,B2*SC,D*SC,t*SC);
+  // เลือก profile ตาม type
+  let shape, centerX, centerY;
+  if(type==='C'){
+    // C: web ด้านขวา, flanges ยื่นซ้าย → x: -F..0, y: 0..H
+    shape   = _3dBuildProfileC(H*SC, B1*SC, D*SC, t*SC);
+    centerX = (B1/2)*SC;   // shift right เพื่อ center (web อยู่ขวา)
+    centerY = (H/2)*SC;
+  } else {
+    // Z: B1 ยื่นซ้าย, B2 ยื่นขวา → x: -B1..B2, y: 0..H
+    shape   = _3dBuildProfileCorrect(H*SC, B1*SC, B2*SC, D*SC, t*SC);
+    centerX = (B2-B1)*SC/2;
+    centerY = (H/2)*SC;
+  }
+
   const geo=new THREE.ExtrudeGeometry(shape,{depth:L*SC,bevelEnabled:false,steps:1});
-  // Center: profile goes from x=-B1..B2, y=0..H → center at (B2-B1)/2, H/2
-  geo.translate((B1-B2)*SC/2, -H*SC/2, -L*SC/2);
+  geo.translate(centerX, -centerY, -L*SC/2);
   geo.rotateY(-Math.PI/2);
   geo.computeVertexNormals();
+
   const body=new THREE.Mesh(geo,galvMat);
   body.castShadow=true; body.receiveShadow=true;
   _3d.grp.add(body);
@@ -2664,44 +2713,49 @@ function _3dRebuild(){
     _3d.grp.add(g);
   };
 
+  // ── คำนวณ world-Z ของ web และ flange หลัง translate+rotateY ──
+  // Profile local X → world Z หลัง rotateY(-PI/2)
+  // local X ของ web:
+  //   Z: web อยู่ที่ x=0 (local) → translate centerX → x=centerX → world Z = centerX
+  //   C: web right edge ที่ x=0 (local) → translate +B1/2*SC → world Z = +B1/2*SC
+  //      web center ที่ x = -t/2 (local) → world Z = -t/2*SC + B1/2*SC (ประมาณ B1/2*SC)
+  // flange midpoint:
+  //   Z TOP: x = -B1/2 (local) → world Z = -B1/2*SC + centerX
+  //   Z BOT: x = +B2/2 (local) → world Z = +B2/2*SC + centerX
+  //   C TOP: x = -B1/2 (local) → world Z = -B1/2*SC + B1/2*SC = 0
+  //   C BOT: x = -B1/2 (local) → world Z = 0 (same as TOP, both flanges ยื่นซ้าย)
+
+  const webZ_local  = type==='C' ? -t*SC/2 : 0;       // web center x ใน local coords
+  const webZ_world  = webZ_local + centerX;             // หลัง translate
+  // flange midpoint x ใน local coords:
+  // Z: TOP flange center = (-B1+0)/2 = -B1/2, BOT = (0+B2)/2 = +B2/2
+  // C: both flanges ยื่นซ้าย center = -B1/2
+  const topFlangeZ  = type==='C' ? -B1*SC/2 + centerX : -B1*SC/2 + centerX;
+  const botFlangeZ  = type==='C' ? -B1*SC/2 + centerX :  B2*SC/2 + centerX;
+
   holes3d.forEach(hole=>{
     const xs=(hole.X-halfL)*SC;
-    const wallDepth=(t+0.2)*SC; // เผื่อ 0.1mm ต่อด้าน
+    const wallDepth=(t+0.2)*SC;
 
     if(hole.face==='WEB'){
       const yS=(hole.Y-H/2)*SC;
       if(!hole.slot){
-        // H3: circle Ø18 ทะลุ web ตาม Z (web thickness direction)
         const sh=new THREE.Shape();
         sh.absarc(0,0,9*SC,0,Math.PI*2,false);
-        // ไม่ต้อง rotate — extrude Z ตรงผ่าน web ได้เลย
-        makeHoleGroup(sh,wallDepth,xs,yS,0,0,0);
+        makeHoleGroup(sh,wallDepth,xs,yS,webZ_world,0,0);
       } else {
-        // H1: slot 18(H)×22(W) ทะลุ web
-        // Shape ใน local XY: X=22(width=ตามความยาว purlin), Y=18(height=ตามความสูง web)
-        // Extrude ตาม local Z = web thickness direction
-        // body ถูก rotateY(-PI/2) แล้ว → local Z = world X
-        // ดังนั้น slot shape ต้องการ:
-        //   local X (22) → map ไป world Z (depth direction ของ purlin)
-        //   local Y (18) → map ไป world Y (height)
-        // → ไม่ต้อง rotate เพิ่ม extrude ตาม local Z ผ่าน web ได้เลย
-        makeHoleGroup(_3dStadium(18*SC,22*SC),wallDepth,xs,yS,0,0,0);
+        makeHoleGroup(_3dStadium(18*SC,22*SC),wallDepth,xs,yS,webZ_world,0,0);
       }
     }
 
     if(hole.face==='TOP'){
-      // B1 top flange (ยื่นซ้าย → world -Z หลัง rotateY(-PI/2))
-      // ต้องเจาะ ตาม Y (ลงผ่านความหนา flange)
-      // rotX = -PI/2 → extrude local Z กลายเป็น world -Y
       makeHoleGroup(_3dStadium(18*SC,22*SC),wallDepth,
-        xs,(H/2)*SC,-(B1/2)*SC,-Math.PI/2,0);
+        xs,(H/2)*SC,topFlangeZ,-Math.PI/2,0);
     }
 
     if(hole.face==='BOT'){
-      // B2 bottom flange (ยื่นขวา → world +Z)
-      // rotX = PI/2 → extrude local Z กลายเป็น world +Y
       makeHoleGroup(_3dStadium(18*SC,22*SC),wallDepth,
-        xs,(-H/2)*SC,(B2/2)*SC,Math.PI/2,0);
+        xs,(-H/2)*SC,botFlangeZ,Math.PI/2,0);
     }
   });
 
