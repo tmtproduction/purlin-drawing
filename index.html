@@ -794,16 +794,14 @@ function DH(x1,x2,dimY,lbl,c=CDIM,originY=null){
   const lblW=lbl.length*sz*0.62;
 
   if(span < lblW+12){
-    // แคบเกิน → เส้นเต็ม + text ออกขวา
-    s+=SL(x1,dimY,x2,dimY,c,.45);
+    // แคบเกิน → leader ออกขวา
     s+=SL(x2+2,dimY,x2+10,dimY,c,.35);
-    s+=ST(x2+12,dimY+3,lbl,7,'start',c);
+    s+=ST(x2+12,dimY+3.5,lbl,7,'start',c);
   } else {
-    // BREAK LINE: ตัดเส้นตรงกลาง เว้นช่องให้ label
-    const hg=lblW/2+3;
-    s+=SL(x1,dimY,mid-hg,dimY,c,.45);
-    s+=SL(mid+hg,dimY,x2,dimY,c,.45);
-    s+=ST(mid,dimY-3,lbl,sz,'middle',c);
+    // ISO 129: text เหนือ dim line เต็ม ไม่ตัดเส้น
+    const pad=2;
+    s+=`<rect x="${r(mid-lblW/2-pad)}" y="${r(dimY-sz-pad)}" width="${r(lblW+pad*2)}" height="${r(sz+pad)}" fill="white" stroke="none"/>`;
+    s+=ST(mid,dimY-2.5,lbl,sz,'middle',c);
   }
   return s;
 }
@@ -844,12 +842,13 @@ function DV(dimX,y1,y2,lbl,c=CDIM,originX=null,lblSz=7.5){
     s+=SL(dimX,mid,lx,mid,c,.3);
     s+=ST(lx+(goLeft?-2:2),mid+3,lbl,Math.max(lblSz-1,6),goLeft?'end':'start',c);
   } else {
-    // BREAK LINE: ตัดเส้นตรงกลาง เว้นช่องให้ label
-    const hg=lblH/2+3;
-    s+=SL(dimX,y1,dimX,mid-hg,c,.45);
-    s+=SL(dimX,mid+hg,dimX,y2,c,.45);
-    // text อยู่กึ่งกลางช่องที่ตัด หมุน -90°
-    s+=ST(dimX,mid,lbl,lblSz,'middle',c,'normal',`rotate(-90,${r(dimX)},${r(mid)})`);
+    // ISO 129: เส้น dim เต็ม, text อยู่ซ้ายของเส้น (rotate -90°), bg ขาวเฉพาะใต้ text
+    s+=SL(dimX,y1,dimX,y2,c,.45);
+    const OFF=goLeft?-7:7;  // offset ออกจากเส้น 7px
+    const tx=dimX+OFF;
+    const clrW=lblSz+4, clrH=lblH+4;
+    s+=`<rect x="${r(tx-clrW/2)}" y="${r(mid-clrH/2)}" width="${r(clrW)}" height="${r(clrH)}" fill="white" stroke="none" transform="rotate(-90,${r(tx)},${r(mid)})"/>`;
+    s+=ST(tx,mid,lbl,lblSz,'middle',c,'normal',`rotate(-90,${r(tx)},${r(mid)})`);
   }
   return s;
 }
@@ -919,16 +918,14 @@ function chainDim(pts, dimY, c=CDIM, originY=null){
     const sz=span<22?6:span<50?7:8;
     const lblW=lbl.length*sz*0.62;
     if(span<lblW+12){
-      // แคบ → ออกนอก
-      s+=SL(x1,y,x2,y,c,.45);
+      // แคบ → leader ออกขวา
       s+=SL(x2+2,y,x2+8,y,c,.3);
-      s+=ST(x2+10,y+3,lbl,7,'start',c);
+      s+=ST(x2+10,y+3.5,lbl,7,'start',c);
     } else {
-      // BREAK LINE: ตัดเส้นตรงกลาง เว้นช่อง label
-      const hg=lblW/2+3;
-      s+=SL(x1,y,mid-hg,y,c,.45);
-      s+=SL(mid+hg,y,x2,y,c,.45);
-      s+=ST(mid,y-3*sign,lbl,sz,'middle',c);
+      // ISO 129: text เหนือ dim line เต็ม ไม่ตัดเส้น
+      const pad=2;
+      s+=`<rect x="${r(mid-lblW/2-pad)}" y="${r(y-sz-pad)}" width="${r(lblW+pad*2)}" height="${r(sz+pad)}" fill="white" stroke="none"/>`;
+      s+=ST(mid,y-2.5*sign,lbl,sz,'middle',c);
     }
   });
   return s;
