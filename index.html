@@ -305,6 +305,7 @@ select option{background:var(--panel)}
   </div>
   <div class="pf">
     <button class="btn bp" onclick="generate()" style="flex:1">▶ สร้าง Drawing</button>
+    <button class="btn bg" onclick="open3D()" title="3D Preview">👁</button>
     <button class="btn bg" onclick="printAll()" title="Print / PDF">🖨</button>
   </div>
 </div>
@@ -326,6 +327,36 @@ select option{background:var(--panel)}
 
 <!-- ═══ PRINT ALL CONTAINER ═══ -->
 <div id="print-all"></div>
+
+<!-- ═══ 3D PREVIEW MODAL ═══ -->
+<div id="modal-3d" style="
+  display:none;position:fixed;inset:0;z-index:9990;
+  background:rgba(0,0,0,0.88);
+  align-items:center;justify-content:center;padding:12px">
+  <div style="
+    background:#f8f9fa;border:1px solid #d0d7de;border-radius:10px;
+    width:min(900px,100%);max-height:92vh;display:flex;flex-direction:column;
+    font-family:'Share Tech Mono',monospace;box-shadow:0 24px 80px rgba(0,0,0,.25)">
+    <!-- header -->
+    <div style="padding:10px 16px;border-bottom:1px solid #d0d7de;display:flex;align-items:center;gap:10px">
+      <span style="color:#0969da;font-weight:700;font-size:12px;letter-spacing:1.5px">👁 3D PREVIEW — HRC STEEL</span>
+      <span id="lbl3d" style="color:#57606a;font-size:10px"></span>
+      <div style="flex:1"></div>
+      <button onclick="close3D()" style="
+        background:none;border:none;color:#57606a;cursor:pointer;
+        font-size:18px;padding:0 6px;border-radius:4px">✕</button>
+    </div>
+    <!-- canvas -->
+    <div id="wrap3d" style="flex:1;min-height:0;position:relative">
+      <canvas id="cv3d" style="display:block;width:100%;height:100%"></canvas>
+      <div style="position:absolute;bottom:10px;right:14px;font-size:10px;color:rgba(0,0,0,.3);pointer-events:none">
+        🖱 drag หมุน · scroll zoom
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 
 <script>
 'use strict';
@@ -2415,6 +2446,349 @@ window.generate=function(){
     const size=document.getElementById('pSize')?.value||'';
     _logActivity('generate',{type,size,H,L,pages:_pages.length});
   },2000);
+};
+
+/* ════════════════════════════════════════════
+   3D PREVIEW ENGINE
+════════════════════════════════════════════ */
+let _3d={rdr:null,sc:null,cam:null,grp:null,anim:null};
+let _3dDrag=false,_3dPx=0,_3dPy=0,_3dTheta=0.7,_3dPhi=0.72,_3dRad=800;
+
+function _3dBuildProfile(type,H,B1,B2,D,t){
+  /* Z-purlin profile (mm, scaled)
+     좌표계: x=along flange width, y=along web height
+     Web: from y=0 (bottom) to y=H (top), thickness t, centered at x=0
+     B1 (top flange): ยื่นซ้าย (−x), lip พับลง (+y ลงไปหา web) → lip end at y=H−D
+     B2 (bottom flange): ยื่นขวา (+x), lip พับขึ้น (−y ขึ้นหา web) → lip end at y=D
+  */
+  const s=new THREE.Shape();
+  const R=Math.min(t*1.8,6);
+  const hw=t/2; // half web thickness
+
+  // Start: top lip tip
+  s.moveTo(-B1, H-D);
+  s.lineTo(-B1, H-t);                                              // up to top flange
+  s.lineTo(-hw-R, H-t);
+  s.quadraticCurveTo(-hw, H-t, -hw, H-t-R);                       // outer corner (top-left)
+  s.lineTo(-hw, t+R);
+  s.quadraticCurveTo(-hw, t, -hw+R, t);                           // inner corner (bottom-left)
+  s.lineTo(B2-R, t);
+  s.quadraticCurveTo(B2, t, B2, t-R);                             // outer corner (bottom-right)
+  s.lineTo(B2, D);                                                 // bottom lip (พับขึ้น)
+  s.lineTo(B2-t, D);
+  s.lineTo(B2-t, t);                                               // inner bottom lip
+  s.lineTo(hw+R, t);
+  s.quadraticCurveTo(hw, t, hw, t+R);                             // inner corner
+  s.lineTo(hw, H-t-R);
+  s.quadraticCurveTo(hw, H-t, hw+R, H-t);                        // inner corner (top-right)
+  s.lineTo(B1-t-R, H-t);
+  // wait — B1 ยื่นซ้าย ดังนั้น outer x = -B1, inner x = -B1+t
+  // ทำใหม่ให้ถูกต้อง
+  s.closePath();
+  return s;
+}
+
+// ใช้ shape ที่ถูกต้องแทน
+function _3dBuildProfileCorrect(H,B1,B2,D,t){
+  const s=new THREE.Shape();
+  const R=Math.min(t*1.5,5);
+  const hw=t/2;
+
+  // Z-profile: web vertical, B1 left (top), B2 right (bottom)
+  // Points วนตามเข็มนาฬิกา (SVG top-left origin → Three.js y-up)
+  // Bottom-right: bottom flange B2 tip → lip up
+  s.moveTo(B2,    D    );  // bottom lip end (lip พับขึ้น = +y)
+  s.lineTo(B2,    t    );  // bottom flange inner edge at web
+  s.lineTo(hw+R,  t    );
+  s.quadraticCurveTo( hw,t,  hw,t+R);   // inner corner bot-right
+  s.lineTo(hw,    H-t-R);
+  s.quadraticCurveTo( hw,H-t, hw+R,H-t); // inner corner top-right
+  // top flange (B1 ยื่นซ้าย = negative x)
+  s.lineTo(-B1+t+R, H-t);
+  s.quadraticCurveTo(-B1+t,H-t,-B1+t,H-t+R);  // outer corner top-left (flange บน)
+  s.lineTo(-B1+t, H     );
+  s.lineTo(-B1,   H     );  // B1 outer tip
+  s.lineTo(-B1,   H-D   );  // top lip end (lip พับลง = −y ลงมาหา web)
+  s.lineTo(-B1+t, H-D   );
+  s.lineTo(-B1+t, H-t   );  // back to top flange inner
+  s.lineTo(-hw-R, H-t   );
+  s.quadraticCurveTo(-hw,H-t,-hw,H-t-R);  // inner corner top-left (web ด้านบน)
+  s.lineTo(-hw,   t+R   );
+  s.quadraticCurveTo(-hw,t,-hw+R,t);      // inner corner bot-left
+  s.lineTo(B2-t+R,t     );  // ไปฝั่งขวา (B2 outer)
+  s.quadraticCurveTo(B2-t,t,B2-t,t-R);
+  s.lineTo(B2-t,  D     );  // bottom lip inner
+  s.lineTo(B2,    D     );  // close to start
+  s.closePath();
+  return s;
+}
+
+function _3dStadium(dh,wh){
+  const s=new THREE.Shape(),r=dh/2,hw=wh/2-r;
+  s.moveTo(-hw,-r);s.lineTo(hw,-r);
+  s.absarc(hw,0,r,-Math.PI/2,Math.PI/2,false);
+  s.lineTo(-hw,r);s.absarc(-hw,0,r,Math.PI/2,Math.PI*1.5,false);
+  s.closePath();return s;
+}
+
+function _3dMakeSlot(dh,wh,depth,htype){
+  const g=new THREE.Group();
+  const eCol={H1:0x1a7ad4,H2:0x8833bb,H3:0x1a8a3a}[htype]||0x1a7ad4;
+
+  // Dark inner body (punch-through)
+  const innerGeo=new THREE.ExtrudeGeometry(_3dStadium(dh,wh),{depth,bevelEnabled:false});
+  g.add(new THREE.Mesh(innerGeo,new THREE.MeshPhongMaterial({
+    color:0x0c0e10,specular:0x181c20,shininess:40,side:THREE.DoubleSide
+  })));
+
+  // Colored filled disc on both faces — เห็นชัดจากทุกมุม
+  const discGeo=new THREE.ShapeGeometry(_3dStadium(dh*0.96,wh*0.96));
+  const discMat=new THREE.MeshBasicMaterial({color:eCol,opacity:0.88,transparent:true,side:THREE.DoubleSide});
+  const discF=new THREE.Mesh(discGeo,discMat);
+  discF.position.z=depth+0.3;
+  g.add(discF);
+  const discB=discF.clone();
+  discB.position.z=-0.3;
+  g.add(discB);
+
+  // Edge ring
+  const em=new THREE.LineBasicMaterial({color:eCol,transparent:true,opacity:0.95,linewidth:2});
+  [depth+0.4,-0.4].forEach(z=>{
+    const pts=[..._3dStadium(dh,wh).getPoints(48),_3dStadium(dh,wh).getPoints(48)[0]]
+      .map(p=>new THREE.Vector3(p.x,p.y,z));
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),em));
+  });
+  return g;
+}
+
+function _3dBuildScene(){
+  while(_3d.sc.children.length>0) _3d.sc.remove(_3d.sc.children[0]);
+  const sc=_3d.sc;
+  sc.background=new THREE.Color(0xf5f6f8);
+  sc.add(new THREE.AmbientLight(0xffffff,1.0));
+  const key=new THREE.DirectionalLight(0xfff8f0,3.5);
+  key.position.set(800,1200,600);key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.left=-2000;key.shadow.camera.right=2000;
+  key.shadow.camera.top=900;key.shadow.camera.bottom=-900;key.shadow.camera.far=6000;
+  sc.add(key);
+  const fill=new THREE.DirectionalLight(0xe8f0ff,1.8);
+  fill.position.set(-600,400,-400);sc.add(fill);
+  const rim=new THREE.DirectionalLight(0xffffff,1.2);
+  rim.position.set(0,600,-800);sc.add(rim);
+  const bot=new THREE.DirectionalLight(0xd0d8e8,0.4);
+  bot.position.set(0,-400,200);sc.add(bot);
+  const flr=new THREE.Mesh(new THREE.PlaneGeometry(20000,20000),new THREE.ShadowMaterial({opacity:0.06}));
+  flr.rotation.x=-Math.PI/2;flr.receiveShadow=true;sc.add(flr);
+}
+
+function _3dRebuild(){
+  const e=id=>+document.getElementById(id)?.value||0;
+  const H=e('pH')||152, B1=e('pB1')||65, B2=e('pB2')||65;
+  const D=e('pD')||20, t=e('pt')||2.3, L=e('pL')||6000;
+  const SC=0.5;
+  document.getElementById('lbl3d').textContent=
+    `Z-${H}\u00d7${B1}\u00d7${B2}\u00d7${D}\u00d7${t} / L=${L}mm`;
+
+  const sc=_3d.sc;
+  if(_3d.grp){sc.remove(_3d.grp);}
+  _3d.grp=new THREE.Group();
+
+  // Galvanized material
+  const galvMat=new THREE.MeshPhongMaterial({
+    color:0xccd4dc,specular:0xffffff,shininess:300,emissive:0x060a10,side:THREE.DoubleSide
+  });
+
+  // Use corrected profile
+  const shape=_3dBuildProfileCorrect(H*SC,B1*SC,B2*SC,D*SC,t*SC);
+  const geo=new THREE.ExtrudeGeometry(shape,{depth:L*SC,bevelEnabled:false,steps:1});
+  // Center: profile goes from x=-B1..B2, y=0..H → center at (B2-B1)/2, H/2
+  geo.translate((B1-B2)*SC/2, -H*SC/2, -L*SC/2);
+  geo.rotateY(-Math.PI/2);
+  geo.computeVertexNormals();
+  const body=new THREE.Mesh(geo,galvMat);
+  body.castShadow=true; body.receiveShadow=true;
+  _3d.grp.add(body);
+  _3d.grp.add(new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo,22),
+    new THREE.LineBasicMaterial({color:0x8896a8,opacity:0.3,transparent:true})
+  ));
+
+  // ── HOLES — realistic cutout using dark cap + tunnel + edge ring ──
+  // Three.js ไม่มี Boolean subtract จึงใช้:
+  // 1. Dark surface cap (ปิดปากรู — ให้ดูเป็นรูดำ ไม่ใช่ mesh ลอย)
+  // 2. Dark extrusion (tunnel ลึกเข้าไปใน material)
+  // 3. Edge outline ring (ขอบรู)
+  // polygonOffset ทำให้ cap อยู่เหนือผิว metal พอดี
+  const halfL=L/2;
+  const holes3d=getHoles();
+
+  const capMat=new THREE.MeshPhongMaterial({
+    color:0x05070a,specular:0x101418,shininess:30,
+    side:THREE.FrontSide,
+    polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4,
+    depthWrite:true
+  });
+  const tunnelMat=new THREE.MeshPhongMaterial({
+    color:0x030507,shininess:10,side:THREE.BackSide
+  });
+  const rimMat=new THREE.LineBasicMaterial({color:0x1a1e24,opacity:0.85,transparent:true});
+
+  const makeHoleGroup=(shape,depth,px,py,pz,rx,ry)=>{
+    const g=new THREE.Group();
+    g.position.set(px,py,pz);
+    g.rotation.x=rx; g.rotation.y=ry;
+
+    // Surface cap (front & back) — ปิดปากรูด้วยสีดำ
+    const capGeo=new THREE.ShapeGeometry(shape);
+    const capF=new THREE.Mesh(capGeo,capMat);
+    capF.position.z=depth/2+0.5; g.add(capF);
+    const capB=new THREE.Mesh(capGeo,capMat.clone());
+    capB.position.z=-depth/2-0.5; capB.rotation.y=Math.PI; g.add(capB);
+
+    // Tunnel body
+    const tGeo=new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false});
+    tGeo.translate(0,0,-depth/2);
+    const tunnel=new THREE.Mesh(tGeo,tunnelMat);
+    g.add(tunnel);
+
+    // Edge ring (ขอบปากรูทั้งสองด้าน)
+    const pts=[...shape.getPoints(48),shape.getPoints(48)[0]]
+      .map(p=>new THREE.Vector3(p.x,p.y,0));
+    const rGeo=new THREE.BufferGeometry().setFromPoints(pts);
+    [depth/2+0.6,-depth/2-0.6].forEach(z=>{
+      const ring=new THREE.Line(rGeo.clone(),rimMat);
+      ring.position.z=z; g.add(ring);
+    });
+
+    _3d.grp.add(g);
+  };
+
+  holes3d.forEach(hole=>{
+    const xs=(hole.X-halfL)*SC;
+    const wallDepth=(t+0.2)*SC; // เผื่อ 0.1mm ต่อด้าน
+
+    if(hole.face==='WEB'){
+      const yS=(hole.Y-H/2)*SC;
+      if(!hole.slot){
+        // H3: circle Ø18 ทะลุ web ตาม Z (web thickness direction)
+        const sh=new THREE.Shape();
+        sh.absarc(0,0,9*SC,0,Math.PI*2,false);
+        // ไม่ต้อง rotate — extrude Z ตรงผ่าน web ได้เลย
+        makeHoleGroup(sh,wallDepth,xs,yS,0,0,0);
+      } else {
+        // H1: slot 18(H)×22(W) ทะลุ web
+        // Shape ใน local XY: X=22(width=ตามความยาว purlin), Y=18(height=ตามความสูง web)
+        // Extrude ตาม local Z = web thickness direction
+        // body ถูก rotateY(-PI/2) แล้ว → local Z = world X
+        // ดังนั้น slot shape ต้องการ:
+        //   local X (22) → map ไป world Z (depth direction ของ purlin)
+        //   local Y (18) → map ไป world Y (height)
+        // → ไม่ต้อง rotate เพิ่ม extrude ตาม local Z ผ่าน web ได้เลย
+        makeHoleGroup(_3dStadium(18*SC,22*SC),wallDepth,xs,yS,0,0,0);
+      }
+    }
+
+    if(hole.face==='TOP'){
+      // B1 top flange (ยื่นซ้าย → world -Z หลัง rotateY(-PI/2))
+      // ต้องเจาะ ตาม Y (ลงผ่านความหนา flange)
+      // rotX = -PI/2 → extrude local Z กลายเป็น world -Y
+      makeHoleGroup(_3dStadium(18*SC,22*SC),wallDepth,
+        xs,(H/2)*SC,-(B1/2)*SC,-Math.PI/2,0);
+    }
+
+    if(hole.face==='BOT'){
+      // B2 bottom flange (ยื่นขวา → world +Z)
+      // rotX = PI/2 → extrude local Z กลายเป็น world +Y
+      makeHoleGroup(_3dStadium(18*SC,22*SC),wallDepth,
+        xs,(-H/2)*SC,(B2/2)*SC,Math.PI/2,0);
+    }
+  });
+
+  const flr=_3d.sc.children.find(c=>c.isMesh&&c.material?.isShadowMaterial);
+  if(flr) flr.position.y=-(H/2)*SC-2;
+  sc.add(_3d.grp);
+  _3dTheta=0.62; _3dPhi=0.68;
+  _3dRad=Math.max(L,H*5)*SC*0.62;
+  _3dSetCam();
+}
+
+function _3dSetCam(){
+  const c=_3d.cam;
+  c.position.set(_3dRad*Math.sin(_3dPhi)*Math.sin(_3dTheta),
+                 _3dRad*Math.cos(_3dPhi),
+                 _3dRad*Math.sin(_3dPhi)*Math.cos(_3dTheta));
+  c.lookAt(0,0,0);
+}
+
+function _3dResize(){
+  const w=document.getElementById('wrap3d').clientWidth;
+  const h=document.getElementById('wrap3d').clientHeight;
+  _3d.rdr.setSize(w,h,false);
+  _3d.cam.aspect=w/h;_3d.cam.updateProjectionMatrix();
+}
+
+window.open3D=function(){
+  const overlay=document.getElementById('modal-3d');
+  overlay.style.display='flex';
+
+  // รอ 1 frame ให้ display:flex render เสร็จก่อน
+  // ถ้า resize ตอน display:none → clientWidth=0 → setSize(0,0) → NaN
+  requestAnimationFrame(()=>{
+    const cv=document.getElementById('cv3d');
+    const wrap=document.getElementById('wrap3d');
+
+    if(!_3d.rdr){
+      _3d.rdr=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+      _3d.rdr.setPixelRatio(Math.min(devicePixelRatio,2));
+      _3d.rdr.shadowMap.enabled=true;
+      _3d.rdr.physicallyCorrectLights=true;
+      _3d.rdr.toneMapping=THREE.ACESFilmicToneMapping;
+      _3d.rdr.toneMappingExposure=1.1;
+      _3d.rdr.setClearColor(0xf5f6f8,1);
+      _3d.sc=new THREE.Scene();
+      _3d.cam=new THREE.PerspectiveCamera(40,1,1,15000);
+
+      cv.addEventListener('mousedown',e=>{_3dDrag=true;_3dPx=e.clientX;_3dPy=e.clientY;});
+      window.addEventListener('mouseup',()=>_3dDrag=false);
+      window.addEventListener('mousemove',e=>{
+        if(!_3dDrag)return;
+        _3dTheta-=(e.clientX-_3dPx)*0.01;
+        _3dPhi=Math.max(0.06,Math.min(Math.PI-0.06,_3dPhi+(e.clientY-_3dPy)*0.01));
+        _3dPx=e.clientX;_3dPy=e.clientY;_3dSetCam();
+      });
+      cv.addEventListener('wheel',e=>{
+        _3dRad=Math.max(80,Math.min(5000,_3dRad+e.deltaY*0.55));
+        _3dSetCam();e.preventDefault();
+      },{passive:false});
+      let lt=null;
+      cv.addEventListener('touchstart',e=>{lt=e.touches[0];});
+      cv.addEventListener('touchmove',e=>{
+        if(!lt)return;const tc=e.touches[0];
+        _3dTheta-=(tc.clientX-lt.clientX)*0.016;
+        _3dPhi=Math.max(0.06,Math.min(Math.PI-0.06,_3dPhi+(tc.clientY-lt.clientY)*0.016));
+        lt=tc;_3dSetCam();e.preventDefault();
+      },{passive:false});
+      new ResizeObserver(()=>{
+        // guard: อย่า resize ตอน display:none
+        if(overlay.style.display==='none') return;
+        _3dResize();
+      }).observe(wrap);
+
+      // animation loop
+      (function _loop(){_3d.anim=requestAnimationFrame(_loop);
+        if(_3d.rdr&&_3d.sc&&_3d.cam) _3d.rdr.render(_3d.sc,_3d.cam);
+      })();
+    }
+
+    _3dResize();    // ตอนนี้ clientWidth มีค่าแล้ว
+    _3dBuildScene();
+    _3dRebuild();
+  });
+};
+
+window.close3D=function(){
+  document.getElementById('modal-3d').style.display='none';
 };
 
 /* ── Init ── */
