@@ -2332,7 +2332,7 @@ const PAGE_DEFAULTS = {pL:6000,pH:152,pt:2.3,pB1:65,pB2:65,pD:20,pType:'Z',
 // Project-level: ร่วมกันทุก sheet (กรอกครั้งเดียว)
 const PROJECT_FIELDS=['tbProj','tbRev','tbBy','tbQty','tbDate','tbNote'];
 // Sheet-level: แยกต่อ sheet
-const SHEET_FIELDS  =['pType','pSize','pL','pH','pt','pB1','pB2','pD','tbNo'];
+const SHEET_FIELDS=['pType','pSize','pThick','pL','pH','pt','pB1','pB2','pD','tbNo'];
 
 // _projState: เก็บค่า project-level fields
 let _projState={};
@@ -2380,26 +2380,41 @@ function _captureState(){
 function _applyState(st){
   if(!st) return;
 
-  // 1. Restore purlin type (ก่อน เพื่อ populate size dropdown)
+  // 1. Restore purlin type ก่อน (populate size dropdown)
   if(st.inputs?.pType){
     const sel=document.getElementById('pType');
     if(sel) sel.value=st.inputs.pType;
     _purlType=st.inputs.pType;
-    // onCatType จะ call _populateSizes → onCatThick → overwrite pH,pB1,pB2,pD,pt
     if(typeof onCatType==='function') onCatType();
   }
 
-  // 2. Restore sheet-level fields ทั้งหมด
-  //    ทำหลัง onCatType() เพื่อ override ค่า catalog ด้วยค่าที่ save ไว้
+  // 2. Restore pSize dropdown (ต้องทำก่อน pThick)
+  if(st.inputs?.pSize){
+    const sizeEl=document.getElementById('pSize');
+    if(sizeEl){
+      sizeEl.value=st.inputs.pSize;
+      // populate thickness dropdown ตาม size ที่เลือก (ไม่ trigger onCatThick)
+      if(typeof onCatSize==='function') onCatSize();
+    }
+  }
+
+  // 3. Restore pThick dropdown
+  if(st.inputs?.pt){
+    const thickEl=document.getElementById('pThick');
+    if(thickEl) thickEl.value=st.inputs.pt;
+  }
+
+  // 4. Restore sheet-level dimension fields ทั้งหมด
+  //    ทำหลัง onCatSize/onCatThick เพื่อ override ค่า catalog ด้วยค่าที่ save ไว้
   SHEET_FIELDS.forEach(id=>{
     const el=document.getElementById(id);
     if(el&&st.inputs&&st.inputs[id]!==undefined) el.value=st.inputs[id];
   });
 
-  // 3. Restore project-level fields (ร่วมกัน)
+  // 5. Restore project-level fields (ร่วมกัน)
   _applyProjectFields();
 
-  // 4. Restore holes
+  // 6. Restore holes
   document.getElementById('htbody').innerHTML=''; _hcnt=0;
   (st.holes||[]).forEach(h=>addHole(+h.qty||1,h.face||'WEB',h.X||'',h.holeType||'H1',h.Y||null));
   recalcAllSP();
