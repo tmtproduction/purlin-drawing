@@ -505,8 +505,9 @@ window.saveProject=async function(){
   if(!_fbUser){alert('กรุณา Sign in ก่อน');return;}
   if(_fbRole==='operator'){alert('Role ของคุณไม่มีสิทธิ์บันทึก');return;}
 
-  // บันทึก state page ปัจจุบัน
+  // บันทึก state page ปัจจุบัน + sync project fields
   _pages[_curPage]={..._pages[_curPage],..._captureState()};
+  _captureProjectFields(); // sync _projState
 
   const projName=prompt('ตั้งชื่อ Project:',
     document.getElementById('tbProj').value||'Project-1');
@@ -516,12 +517,14 @@ window.saveProject=async function(){
     uid:_fbUser.uid, email:_fbUser.email,
     name:projName, savedAt:Date.now(),
     sheetCount:_pages.length,
+    // Project-level fields (ร่วมกัน)
+    projFields:{..._projState},
+    // Sheet-level data (แยกต่อ sheet)
     sheets:_pages.map((pg,i)=>({
       sheetNum:i+1,
       label:pg.label,
       inputs:pg.inputs||{},
       holes:pg.holes||[]
-      // ไม่บันทึก svg (generate ใหม่ตอน load)
     }))
   };
 
@@ -640,6 +643,13 @@ window.loadProject=function(docId){
   if(!sheets.length) return;
   if(!confirm(`โหลด Project "${dd.name}" (${sheets.length} sheets)?\nข้อมูลปัจจุบันจะถูกแทนที่`)) return;
 
+  // Restore project-level fields ก่อน
+  if(dd.projFields){
+    _projState={...dd.projFields};
+    _applyProjectFields(dd.projFields);
+  }
+
+  // Restore sheets
   _pages=sheets.map((sh,i)=>({
     label:sh.label||`P${i+1}`,
     inputs:sh.inputs||{},
@@ -647,7 +657,7 @@ window.loadProject=function(docId){
     svg:''
   }));
   _curPage=0; _pgCtr=_pages.length;
-  _applyState(_pages[0]);
+  _applyState(_pages[0]);  // จะ apply sheet-level + project-level ถูกต้อง
   _g0=false; _renderTabs();
   toggleProjectPanel();
   setTimeout(()=>generate(),150);
@@ -2318,56 +2328,80 @@ let _pgCtr = 1;
 const PAGE_DEFAULTS = {pL:6000,pH:152,pt:2.3,pB1:65,pB2:65,pD:20,pType:'Z',
   tbProj:'TMT Steel PCL',tbNo:'Z-HDG-001',tbRev:'0',tbBy:'',tbQty:'1',tbDate:'',tbNote:'ทุกขนาดหน่วย mm.'};
 
+// ── FIELD GROUPS ──
+// Project-level: ร่วมกันทุก sheet (กรอกครั้งเดียว)
+const PROJECT_FIELDS=['tbProj','tbRev','tbBy','tbQty','tbDate','tbNote'];
+// Sheet-level: แยกต่อ sheet
+const SHEET_FIELDS  =['pType','pSize','pL','pH','pt','pB1','pB2','pD','tbNo'];
+
+// _projState: เก็บค่า project-level fields
+let _projState={};
+function _captureProjectFields(){
+  const o={};
+  PROJECT_FIELDS.forEach(id=>{
+    const el=document.getElementById(id); if(el) o[id]=el.value;
+  });
+  _projState=o;
+}
+function _applyProjectFields(src){
+  const o=src||_projState;
+  PROJECT_FIELDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&o[id]!==undefined) el.value=o[id];
+  });
+}
+
 function _captureState(){
-  // inputs: ทุก field รวม purlin type (pType)
-  const ids=['pL','pH','pt','pB1','pB2','pD',
-             'tbProj','tbNo','tbRev','tbBy','tbQty','tbDate','tbNote'];
+  // บันทึก project-level ก่อน (sync _projState)
+  _captureProjectFields();
+
+  // Sheet-level inputs เท่านั้น
   const inputs={};
-  ids.forEach(id=>{const el=document.getElementById(id); if(el) inputs[id]=el.value;});
-  // บันทึก purlin type (Z/C) แยกต่างหาก
-  const typeEl=document.querySelector('input[name="pType"]:checked')
-             ||document.getElementById('pType');
+  SHEET_FIELDS.forEach(id=>{
+    const el=document.getElementById(id); if(el) inputs[id]=el.value;
+  });
+  // purlin type
+  const typeEl=document.getElementById('pType');
   inputs.pType=typeEl?.value||_purlType||'Z';
-  // บันทึก preset size ที่เลือก (ถ้ามี)
   const sizeEl=document.getElementById('pSize');
   if(sizeEl) inputs.pSize=sizeEl.value;
 
-  const holes=Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>{
-    return{
-      qty:      tr.querySelector('input[type=number]')?.value||1,
-      face:     tr.querySelector('.face-sel')?.value||'WEB',
-      X:        tr.querySelector('.x-inp')?.value||'',
-      Y:        tr.querySelector('.y-inp')?.value||'',
-      holeType: tr.querySelector('.type-sel')?.value||'H1'
-    };
-  });
+  const holes=Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>({
+    qty:      tr.querySelector('input[type=number]')?.value||1,
+    face:     tr.querySelector('.face-sel')?.value||'WEB',
+    X:        tr.querySelector('.x-inp')?.value||'',
+    Y:        tr.querySelector('.y-inp')?.value||'',
+    holeType: tr.querySelector('.type-sel')?.value||'H1'
+  }));
   const svg=document.getElementById('svg-out').innerHTML;
   return{inputs,holes,svg};
 }
 
 function _applyState(st){
   if(!st) return;
-  const ids=['pL','pH','pt','pB1','pB2','pD',
-             'tbProj','tbNo','tbRev','tbBy','tbQty','tbDate','tbNote'];
-  ids.forEach(id=>{
+
+  // 1. Restore sheet-level fields เท่านั้น
+  SHEET_FIELDS.forEach(id=>{
     const el=document.getElementById(id);
     if(el&&st.inputs&&st.inputs[id]!==undefined) el.value=st.inputs[id];
   });
-  // Restore purlin type via select#pType
+
+  // 2. Restore purlin type + trigger UI update
   if(st.inputs?.pType){
     const sel=document.getElementById('pType');
-    if(sel){
-      sel.value=st.inputs.pType;
-      // trigger onCatType() เพื่ออัปเดต UI ตาม type (Z/C)
-      if(typeof onCatType==='function') onCatType();
-    }
+    if(sel){ sel.value=st.inputs.pType; }
     _purlType=st.inputs.pType;
+    if(typeof onCatType==='function') onCatType();
   }
-  // Restore preset size
   if(st.inputs?.pSize){
     const sizeEl=document.getElementById('pSize');
     if(sizeEl) sizeEl.value=st.inputs.pSize;
   }
+
+  // 3. Restore project-level fields (ร่วมกัน — ไม่ overwrite ด้วย sheet data)
+  _applyProjectFields();
+
+  // 4. Restore holes
   document.getElementById('htbody').innerHTML=''; _hcnt=0;
   (st.holes||[]).forEach(h=>addHole(+h.qty||1,h.face||'WEB',h.X||'',h.holeType||'H1',h.Y||null));
   recalcAllSP();
@@ -2386,11 +2420,16 @@ function _renderTabs(){
 function _pgLabel(){ return `P${_pgCtr}`; }
 
 window.addPage=function(){
-  // save current page
+  // save current page (sheet-level only)
   _pages[_curPage]={..._pages[_curPage],..._captureState()};
-  // new blank page
+  // new blank page — ใช้แค่ sheet-level defaults
   _pgCtr++;
-  const inputs={...PAGE_DEFAULTS, tbNo:'Z-HDG-00'+_pgCtr};
+  const inputs={
+    pType:_purlType||'Z',
+    pL:6000,pH:152,pt:2.3,pB1:65,pB2:65,pD:20,
+    tbNo:`Z-HDG-00${_pgCtr}`
+    // project-level fields ไม่ใส่ใน sheet inputs
+  };
   _pages.push({label:_pgLabel(),inputs,holes:[
     {qty:'1',face:'WEB',X:'35',holeType:'H1'},
     {qty:'1',face:'WEB',X:'35',holeType:'H2'},
