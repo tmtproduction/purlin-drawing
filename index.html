@@ -2380,25 +2380,23 @@ function _captureState(){
 function _applyState(st){
   if(!st) return;
 
-  // 1. Restore sheet-level fields เท่านั้น
+  // 1. Restore purlin type (ก่อน เพื่อ populate size dropdown)
+  if(st.inputs?.pType){
+    const sel=document.getElementById('pType');
+    if(sel) sel.value=st.inputs.pType;
+    _purlType=st.inputs.pType;
+    // onCatType จะ call _populateSizes → onCatThick → overwrite pH,pB1,pB2,pD,pt
+    if(typeof onCatType==='function') onCatType();
+  }
+
+  // 2. Restore sheet-level fields ทั้งหมด
+  //    ทำหลัง onCatType() เพื่อ override ค่า catalog ด้วยค่าที่ save ไว้
   SHEET_FIELDS.forEach(id=>{
     const el=document.getElementById(id);
     if(el&&st.inputs&&st.inputs[id]!==undefined) el.value=st.inputs[id];
   });
 
-  // 2. Restore purlin type + trigger UI update
-  if(st.inputs?.pType){
-    const sel=document.getElementById('pType');
-    if(sel){ sel.value=st.inputs.pType; }
-    _purlType=st.inputs.pType;
-    if(typeof onCatType==='function') onCatType();
-  }
-  if(st.inputs?.pSize){
-    const sizeEl=document.getElementById('pSize');
-    if(sizeEl) sizeEl.value=st.inputs.pSize;
-  }
-
-  // 3. Restore project-level fields (ร่วมกัน — ไม่ overwrite ด้วย sheet data)
+  // 3. Restore project-level fields (ร่วมกัน)
   _applyProjectFields();
 
   // 4. Restore holes
