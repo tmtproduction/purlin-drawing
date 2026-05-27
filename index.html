@@ -2315,19 +2315,29 @@ let _pages = [];
 let _curPage = 0;
 let _pgCtr = 1;
 
-const PAGE_DEFAULTS = {pL:6000,pH:152,pt:2.3,pB1:65,pB2:65,pD:20,
+const PAGE_DEFAULTS = {pL:6000,pH:152,pt:2.3,pB1:65,pB2:65,pD:20,pType:'Z',
   tbProj:'TMT Steel PCL',tbNo:'Z-HDG-001',tbRev:'0',tbBy:'',tbQty:'1',tbDate:'',tbNote:'ทุกขนาดหน่วย mm.'};
 
 function _captureState(){
-  const ids=['pL','pH','pt','pB1','pB2','pD','tbProj','tbNo','tbRev','tbBy','tbQty','tbDate','tbNote'];
+  // inputs: ทุก field รวม purlin type (pType)
+  const ids=['pL','pH','pt','pB1','pB2','pD',
+             'tbProj','tbNo','tbRev','tbBy','tbQty','tbDate','tbNote'];
   const inputs={};
   ids.forEach(id=>{const el=document.getElementById(id); if(el) inputs[id]=el.value;});
+  // บันทึก purlin type (Z/C) แยกต่างหาก
+  const typeEl=document.querySelector('input[name="pType"]:checked')
+             ||document.getElementById('pType');
+  inputs.pType=typeEl?.value||_purlType||'Z';
+  // บันทึก preset size ที่เลือก (ถ้ามี)
+  const sizeEl=document.getElementById('pSize');
+  if(sizeEl) inputs.pSize=sizeEl.value;
+
   const holes=Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>{
     return{
-      qty: tr.querySelector('input[type=number]')?.value||1,
-      face: tr.querySelector('.face-sel')?.value||'WEB',
-      X:   tr.querySelector('.x-inp')?.value||'',
-      Y:   tr.querySelector('.y-inp')?.value||'',
+      qty:      tr.querySelector('input[type=number]')?.value||1,
+      face:     tr.querySelector('.face-sel')?.value||'WEB',
+      X:        tr.querySelector('.x-inp')?.value||'',
+      Y:        tr.querySelector('.y-inp')?.value||'',
       holeType: tr.querySelector('.type-sel')?.value||'H1'
     };
   });
@@ -2337,11 +2347,27 @@ function _captureState(){
 
 function _applyState(st){
   if(!st) return;
-  const ids=['pL','pH','pt','pB1','pB2','pD','tbProj','tbNo','tbRev','tbBy','tbQty','tbDate','tbNote'];
+  const ids=['pL','pH','pt','pB1','pB2','pD',
+             'tbProj','tbNo','tbRev','tbBy','tbQty','tbDate','tbNote'];
   ids.forEach(id=>{
     const el=document.getElementById(id);
     if(el&&st.inputs&&st.inputs[id]!==undefined) el.value=st.inputs[id];
   });
+  // Restore purlin type via select#pType
+  if(st.inputs?.pType){
+    const sel=document.getElementById('pType');
+    if(sel){
+      sel.value=st.inputs.pType;
+      // trigger onCatType() เพื่ออัปเดต UI ตาม type (Z/C)
+      if(typeof onCatType==='function') onCatType();
+    }
+    _purlType=st.inputs.pType;
+  }
+  // Restore preset size
+  if(st.inputs?.pSize){
+    const sizeEl=document.getElementById('pSize');
+    if(sizeEl) sizeEl.value=st.inputs.pSize;
+  }
   document.getElementById('htbody').innerHTML=''; _hcnt=0;
   (st.holes||[]).forEach(h=>addHole(+h.qty||1,h.face||'WEB',h.X||'',h.holeType||'H1',h.Y||null));
   recalcAllSP();
