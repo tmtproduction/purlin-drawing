@@ -153,16 +153,16 @@ select option{background:var(--panel)}
   .print-page{
     break-after:page;page-break-after:always;
     page-break-inside:avoid;break-inside:avoid;
+    width:297mm;height:210mm;
     overflow:hidden;
   }
   .print-page:last-child{break-after:avoid;page-break-after:avoid}
   .print-page svg{
     display:block!important;
-    width:100%!important;
-    height:auto!important;
-    max-height:196mm!important;
+    width:297mm!important;
+    height:210mm!important;
   }
-  @page{margin:5mm;size:A4 landscape}
+  @page{margin:0;size:A3 landscape}
 }
 </style>
 </head>
