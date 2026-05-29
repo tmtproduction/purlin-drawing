@@ -162,7 +162,7 @@ select option{background:var(--panel)}
     width:297mm!important;
     height:210mm!important;
   }
-  @page{margin:0;size:A3 landscape}
+  @page{margin:0;size:A4 landscape}
 }
 </style>
 </head>
@@ -317,9 +317,9 @@ select option{background:var(--panel)}
     <button class="btn bg" onclick="printAll()" style="font-size:9px;padding:4px 11px">Print / PDF</button>
   </div>
   <div class="scroll">
-    <svg id="svg-out" width="1190" height="841" viewBox="0 0 1190 841" overflow="hidden" xmlns="http://www.w3.org/2000/svg">
-      <rect width="1190" height="841" fill="#fff"/>
-      <text x="595" y="420" text-anchor="middle" font-size="13" fill="#bbb" font-family="Share Tech Mono,monospace">กรอกข้อมูลและกด ▶ สร้าง Drawing</text>
+    <svg id="svg-out" width="842" height="595" viewBox="0 0 842 595" overflow="hidden" xmlns="http://www.w3.org/2000/svg">
+      <rect width="842" height="595" fill="#fff"/>
+      <text x="421" y="297" text-anchor="middle" font-size="11" fill="#bbb" font-family="Share Tech Mono,monospace">กรอกข้อมูลและกด ▶ สร้าง Drawing</text>
     </svg>
   </div>
 </div><!-- /#right -->
@@ -788,7 +788,7 @@ function lookupDiaNum(holeType){ return holeType==='H3' ? 18 : SLOT_DH; }
 function isSlot(holeType){ return holeType!=='H3'; }
 
 /* ── CONSTANTS ── */
-const SW=1190,SH=841;
+const SW=842,SH=595;
 const MONO='Share Tech Mono,monospace';
 const CDIM='#222';   // dimension line color (dark, like CAD)
 const COUT='#000';
@@ -1765,48 +1765,40 @@ function generate(){
   const purlinLabel=`${_purlType}-${H}×${B1}${b2part}×${D}×${t}  /  L = ${fmt(L)} mm`;
 
   /* ══════════════════════════════════════════
-     LAYOUT — A3 Landscape (1190×841)
+     LAYOUT — A4 Landscape (842×595)
      ┌─────────────────────────────────────────┐ MT
-     │  WEB VIEW  (elevation, full width)      │ ~35% height
-     ├─────────────────────────────────────────┤ tvY (top view divider)
-     │  TOP VIEW  (plan view, full width)      │ ~15% height
+     │  WEB VIEW  (elevation, full width)      │ ~32% height
+     ├─────────────────────────────────────────┤ tvY
+     │  TOP VIEW  (plan view, full width)      │ ~13% height
      ├──────────────────────┬──────────────────┤ divY
      │  SECTION A  SECT. B  │  HOLE SCHEDULE   │ ~38%
      ├──────────────────────┴──────────────────┤ TB_Y
-     │  TITLE BLOCK                            │ ~12%
+     │  TITLE BLOCK                            │ ~17%
      └─────────────────────────────────────────┘
   ══════════════════════════════════════════ */
-  const ML=58, MR=22, MT=28, MB=95;
+  const ML=42, MR=16, MT=20, MB=72;
   const TB_Y=SH-MB;
   const CONTENT_H=TB_Y-MT;
 
-  // Web View zone — 30% ให้ Top View ขึ้นสูง
-  const WEB_H=Math.round(CONTENT_H*0.30);
+  const WEB_H=Math.round(CONTENT_H*0.32);
   const tvY=MT+WEB_H;
-
-  // Top View zone — 14% พอใส่ chain dim ด้านบน + profile + callout ด้านล่าง
-  const TV_H=Math.round(CONTENT_H*0.14);
+  const TV_H=Math.round(CONTENT_H*0.13);
   const divY=tvY+TV_H;
-
-  // Section+Schedule zone (remaining)
   const SEC_ZONE_H=TB_Y-divY;
 
-  // ── WEB VIEW LAYOUT ── DPT ใหญ่ขึ้นเพื่อ chain dim + callouts บนหัว
-  const DPL=58, DPR=22, DPT=56, DPB=42;
+  const DPL=42, DPR=16, DPT=40, DPB=30;
   const eW=(SW-ML-MR)-DPL-DPR;
   const scX=Math.min(eW/L, 2.2);
   const webPxW=L*scX;
   const webInner=WEB_H-DPT-DPB;
-  const webPxH=Math.max(Math.min(H*scX, webInner*0.52), 48);
+  const webPxH=Math.max(Math.min(H*scX, webInner*0.52), 34);
   const scY=webPxH/H;
   const WX=ML+DPL+(eW-webPxW)/2;
   const WY=MT+DPT+(webInner-webPxH)/2;
-  // Pre-register SVG outer margin so pills stay inside drawing
-  _cboxes.push([0, WX-4, 0, SH]);           // left outer margin
-  _cboxes.push([WX+webPxW+4, SW, 0, SH]);   // right outer margin
+  _cboxes.push([0, WX-4, 0, SH]);
+  _cboxes.push([WX+webPxW+4, SW, 0, SH]);
 
-  // ── TOP VIEW LAYOUT (plan: shows flange width as rectangles) ──
-  const TV_PAD_T=38, TV_PAD_B=10;
+  const TV_PAD_T=28, TV_PAD_B=8;
   const tvInner=TV_H-TV_PAD_T-TV_PAD_B;
   const tvScale=Math.min(tvInner/(B1+B2eff), scX);
   const tvWebH=(B1+B2eff)*tvScale;
@@ -1824,13 +1816,13 @@ function generate(){
   const hasSecB=(tHoles.length>0||bHoles.length>0);
 
   // Section layout
-  const SEC_ZONE_W=Math.round((SW-ML-MR)*0.52);
-  const SCH_X=ML+SEC_ZONE_W+10;
+  const SEC_ZONE_W=Math.round((SW-ML-MR)*0.50);
+  const SCH_X=ML+SEC_ZONE_W+8;
   const SCH_W=SW-MR-SCH_X-4;
   const numSec=1+(hasSecB?1:0);
-  const secSlot=Math.floor((SEC_ZONE_W-40)/numSec);
-  const secAvailH=SEC_ZONE_H-70;
-  const secSc=Math.min(secAvailH/H, (secSlot-80)/(B1+B2eff+D*2+10));
+  const secSlot=Math.floor((SEC_ZONE_W-30)/numSec);
+  const secAvailH=SEC_ZONE_H-55;
+  const secSc=Math.min(secAvailH/H, (secSlot-60)/(B1+B2eff+D*2+10));
   const secH_px=H*secSc;
   const uniqueHY_all=[...new Set(wHoles.map(h=>h.Y))].sort((a,b)=>a-b);
   const yDimSpace=(uniqueHY_all.length+1)*22+24;
@@ -2175,94 +2167,30 @@ function generate(){
   if(hasSecB)
     s+=drawSection(secBx, secBy, H, B1, B2eff, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`, false, isC, SCH_X-8);
 
-  /* ══ HOLE SCHEDULE ══
-     เรียงตาม X → ภายใน X เดียวกัน เรียง T,W,B
-     จำนวนรูต่อ hole type: H1=2 slots, H2=2 slots (T+B), H3=1 hole
-  ══ */
-  // กลุ่ม holes โดย X (รวม H2 ที่มี TOP+BOT ที่ X เดียวกัน)
-  // นับ raw rows จาก input table (ก่อน expand เป็น individual face holes)
-  // ใช้ rawHoles เพื่อ deduplicate H2 (TOP+BOT ที่ X เดียวกัน = 1 row)
-  const rawRows=Array.from(document.getElementById('htbody').querySelectorAll('tr')).map(tr=>{
-    const inp=tr.querySelectorAll('input,select');
-    // inp[0]=qty, inp[1]=face(select), inp[2]=X(.x-inp), inp[3]=SP(.sp-inp), inp[4]=type(select)
-    const qty=+inp[0].value||1;
-    const face=tr.querySelector('.face-sel')?.value||'WEB';
-    const X=parseFloat(tr.querySelector('.x-inp')?.value)||0;
-    const holeType=tr.querySelector('.type-sel')?.value||'H1';
-    return{qty,face,X,holeType};
-  });
-
-  // สร้าง schedule rows ที่ถูกต้อง
-  // H2 → แยก 2 บรรทัด (T และ B)
-  // H1 → 1 บรรทัด face W จำนวน 2 รู
-  // เรียงลำดับ T → W → B
-  const schedRows=[];
-  rawRows.forEach(row=>{
-    if(row.holeType==='H2'){
-      // H2 = แยก 2 บรรทัด: T (B1) และ B (B2)
-      schedRows.push({...row, face:'T', holeCount:1,
-        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`,
-        yDisp:'(B1)'});
-      schedRows.push({...row, face:'B', holeCount:1,
-        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`,
-        yDisp:'(B2)'});
-    } else if(row.holeType==='H1'){
-      // H1 = 1 บรรทัด face W จำนวน 2 รู
-      schedRows.push({...row, face:'W', holeCount:2,
-        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`,
-        yDisp:fmt(H/2-getTMTRow(H).GL/2)+'/'+fmt(H/2+getTMTRow(H).GL/2)});
-    } else if(row.holeType==='H3'){
-      schedRows.push({...row, face:'W', holeCount:1,
-        shapeDisp:`Ø${fmt(18)} Hole`,
-        yDisp:fmt(Math.round(H/2))});
-    } else if(row.face==='TOP'){
-      schedRows.push({...row, face:'T', holeCount:1,
-        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`, yDisp:'(B1)'});
-    } else if(row.face==='BOT'){
-      schedRows.push({...row, face:'B', holeCount:1,
-        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`, yDisp:'(B2)'});
-    } else {
-      schedRows.push({...row, face:'W', holeCount:1,
-        shapeDisp:`${SLOT_DH}×${SLOT_WH} Slot`, yDisp:fmt(H/2)});
-    }
-  });
-
-  // เรียง: W → T → B (face), ภายใน face เรียง H1→H2→H3 (type), แล้ว X น้อย→มาก
-  const faceOrder={'W':0,'T':1,'B':2};
-  const typeOrder={'H1':0,'H2':1,'H3':2,'TOP':1,'BOT':2};
-  schedRows.sort((a,b)=>{
-    const fo=(faceOrder[a.face]??3)-(faceOrder[b.face]??3);
-    if(fo!==0) return fo;
-    const to=(typeOrder[a.holeType]??9)-(typeOrder[b.holeType]??9);
-    if(to!==0) return to;
-    return a.X-b.X;
-  });
-
+  /* ══ HOLE SCHEDULE (original) ══ */
   const schY=divY+6;
-  // ใช้พื้นที่ SCH_W ทั้งหมด (จาก SCH_X ถึง right margin)
   const schedStartX=SCH_X-4;
   const schedAvailW=SW-MR-schedStartX;
 
-  // แบ่งคอลัมน์ให้กว้างเท่ากันตาม ratio — N และ หน้า แคบกว่า
+  s+=SR(schedStartX,schY,schedAvailW,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
+  s+=ST(schedStartX+schedAvailW/2,schY+12,'HOLE SCHEDULE',11,'middle','#000','bold');
+
+  const yRefLabel2=document.getElementById('yRef')?.value==='bot'?'จากล่าง':
+                   document.getElementById('yRef')?.value==='top'?'จากบน':'จากกลาง';
+
   const colDefs=[
-    {h:'N',       ratio:0.5},
-    {h:'หน้า',    ratio:0.7},
-    {h:'X (mm)',  ratio:1.2},
-    {h:'Type',    ratio:0.8},
-    {h:'จำนวนรู', ratio:0.8},
-    {h:'Y (mm)',  ratio:1.2},
-    {h:'Shape',   ratio:1.8},
+    {h:'N',        ratio:0.5},
+    {h:'หน้า',     ratio:0.7},
+    {h:'X (mm)',   ratio:1.2},
+    {h:'Y (mm)',   ratio:1.2},
+    {h:'Ø (mm)',   ratio:1.0},
+    {h:'PITCH',    ratio:1.2},
   ];
   const totalRatio=colDefs.reduce((a,c)=>a+c.ratio,0);
   const unitW=schedAvailW/totalRatio;
-  const scols=colDefs.map(c=>({...c, w:Math.round(c.ratio*unitW)}));
-  // fix rounding: ปรับ col สุดท้ายให้รวมได้พอดี
+  const scols=colDefs.map(c=>({...c,w:Math.round(c.ratio*unitW)}));
   const usedW=scols.slice(0,-1).reduce((a,c)=>a+c.w,0);
   scols[scols.length-1].w=schedAvailW-usedW;
-
-  // Background + title
-  s+=SR(schedStartX,schY,schedAvailW,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
-  s+=ST(schedStartX+schedAvailW/2,schY+12,'HOLE SCHEDULE',11,'middle','#000','bold');
 
   const SCH_ROW_H=15;
   const thY2=schY+16;
@@ -2273,20 +2201,34 @@ function generate(){
     cx2+=col.w;
   });
 
-  schedRows.forEach((h,i)=>{
+  // อ่านโดยตรงจาก DOM rows (ค่าที่ user กรอก ก่อน convert)
+  const domRows=Array.from(document.getElementById('htbody').querySelectorAll('tr'));
+  domRows.forEach((tr,i)=>{
+    const inp=tr.querySelectorAll('input,select');
+    const qty  = inp[0]?.value||'1';
+    const face = tr.querySelector('.face-sel')?.value||'WEB';
+    const X    = tr.querySelector('.x-inp')?.value||'';
+    const rawY = tr.querySelectorAll('input')[1]?.value||'—'; // SP input
+    const tag  = face==='WEB'?'W':face==='TOP'?'T':'B';
+
+    // หา dia และ pitch จาก holes array ที่ตรงกัน
+    const holeMatch=holes[i];
+    const diaStr   = holeMatch?`Ø${fmt(holeMatch.dia)}`:'—';
+    const pitchStr = holeMatch&&holeMatch.qty>1&&holeMatch.pitch>0
+                     ?`@${fmt(holeMatch.pitch)}`:'—';
+
     const ry=thY2+(SCH_ROW_H+2)*(i+1);
     const bg=i%2===0?'#fafaf7':'#eee8d4';
-    const vals=[String(i+1), h.face, fmt(h.X), h.holeType||'—',
-                String(h.holeCount), h.yDisp, h.shapeDisp];
+    const vals=[String(i+1), tag, X, rawY, diaStr, pitchStr];
     cx2=schedStartX;
     scols.forEach((col,j)=>{
       s+=SR(cx2,ry,col.w,SCH_ROW_H+2,'#ddd',.3,bg);
-      const fs=col.w<28?7:col.w<40?8:9;
+      const fs=col.w<30?7:col.w<45?8:9;
       s+=ST(cx2+col.w/2,ry+SCH_ROW_H-1,vals[j],fs,'middle','#111');
       cx2+=col.w;
     });
   });
-  if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
+  if(!domRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
 
   /* ── HOLE TYPE LEGEND — มุมซ้ายล่างของ Section zone ── */
   {
@@ -2507,7 +2449,7 @@ window.printAll=function(){
   const container=document.getElementById('print-all');
   container.innerHTML=pagesToPrint.map(pg=>`
     <div class="print-page">
-      <svg width="1190" height="841" viewBox="0 0 1190 841" overflow="hidden"
+      <svg width="842" height="595" viewBox="0 0 842 595" overflow="hidden"
            xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto">
         ${pg.svg}
       </svg>
