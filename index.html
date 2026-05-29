@@ -2262,14 +2262,14 @@ function generate(){
 
   // Background + title
   s+=SR(schedStartX,schY,schedAvailW,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
-  s+=ST(schedStartX+schedAvailW/2,schY+10,'HOLE SCHEDULE',8,'middle','#000','bold');
+  s+=ST(schedStartX+schedAvailW/2,schY+12,'HOLE SCHEDULE',11,'middle','#000','bold');
 
-  const SCH_ROW_H=11;
-  const thY2=schY+14;
+  const SCH_ROW_H=15;
+  const thY2=schY+16;
   let cx2=schedStartX;
   scols.forEach(col=>{
     s+=SR(cx2,thY2,col.w,SCH_ROW_H+2,'#aaa',.4,'#e0dbbf');
-    s+=ST(cx2+col.w/2,thY2+SCH_ROW_H-1,col.h,5.5,'middle','#444','bold');
+    s+=ST(cx2+col.w/2,thY2+SCH_ROW_H-1,col.h,7.5,'middle','#444','bold');
     cx2+=col.w;
   });
 
@@ -2281,13 +2281,12 @@ function generate(){
     cx2=schedStartX;
     scols.forEach((col,j)=>{
       s+=SR(cx2,ry,col.w,SCH_ROW_H+2,'#ddd',.3,bg);
-      // font size ปรับตาม column width
-      const fs=col.w<28?5.5:col.w<40?6:6.5;
+      const fs=col.w<28?7:col.w<40?8:9;
       s+=ST(cx2+col.w/2,ry+SCH_ROW_H-1,vals[j],fs,'middle','#111');
       cx2+=col.w;
     });
   });
-  if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',8,'middle','#bbb');
+  if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
 
   /* ── HOLE TYPE LEGEND — มุมซ้ายล่างของ Section zone ── */
   {
