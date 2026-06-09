@@ -1820,15 +1820,18 @@ function generate(){
   const SCH_X=ML+SEC_ZONE_W+8;
   const SCH_W=SW-MR-SCH_X-4;
   const numSec=1+(hasSecB?1:0);
-  const secSlot=Math.floor((SEC_ZONE_W-30)/numSec);
   const secAvailH=SEC_ZONE_H-55;
-  const secSc=Math.min(secAvailH/H, (secSlot-60)/(B1+B2eff+D*2+10));
+  // คำนวณ scale จาก zone ทั้งหมด แบ่งครึ่งถ้ามี 2 sections
+  const secZoneW=SEC_ZONE_W-20; // เผื่อ margin
+  const secSlotW=Math.floor(secZoneW/numSec);
+  const secSc=Math.min(secAvailH/H, (secSlotW-50)/(B1+B2eff+D*2+10));
   const secH_px=H*secSc;
   const uniqueHY_all=[...new Set(wHoles.map(h=>h.Y))].sort((a,b)=>a-b);
-  // ชิดขอบซ้าย: web อยู่ที่ ML+B1*secSc, Y dim ยื่นซ้ายเข้า margin ได้
-  const secAx=ML+B1*secSc+10;
+  // Section A-A: web (x=0) อยู่ที่ ML+B1*secSc ชิดซ้าย Y dim ยื่นเข้า margin
+  const secAx=ML+B1*secSc+8;
   const secAy=divY+16+Math.round((SEC_ZONE_H-secH_px-70)/2)+secH_px;
-  const secBx=secAx+(B1+B2eff)*secSc+secSlot*0.52;
+  // Section B-B: วางหลัง A-A โดยให้ขวาสุดไม่เกิน SCH_X-12
+  const secBx=secAx+secSlotW;
   const secBy=secAy;
 
   /* ══ SVG BUILD ══ */
@@ -2163,7 +2166,7 @@ function generate(){
      SECTION VIEWS
   ════════════════════════ */
   if(wHoles.length>0||holes.length>0)
-    s+=drawSection(secAx, secAy, H, B1, B2eff, D, secSc, wHoles, 'A - A', `1:${r(1/secSc,1)}`, true, isC);
+    s+=drawSection(secAx, secAy, H, B1, B2eff, D, secSc, wHoles, 'A - A', `1:${r(1/secSc,1)}`, true, isC, hasSecB ? secBx-B1*secSc-16 : SCH_X-8);
   if(hasSecB)
     s+=drawSection(secBx, secBy, H, B1, B2eff, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`, false, isC, SCH_X-8);
 
