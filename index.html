@@ -2167,24 +2167,22 @@ function generate(){
   if(hasSecB)
     s+=drawSection(secBx, secBy, H, B1, B2eff, D, secSc, [...tHoles,...bHoles], 'B - B', `1:${r(1/secSc,1)}`, false, isC, SCH_X-8);
 
-  /* ══ HOLE SCHEDULE (original) ══ */
+  /* ══ HOLE SCHEDULE ══ */
   const schY=divY+6;
   const schedStartX=SCH_X-4;
   const schedAvailW=SW-MR-schedStartX;
+  const schedAvailH=TB_Y-schY-6;
 
-  s+=SR(schedStartX,schY,schedAvailW,TB_Y-schY-6,'#ccc',.5,'#fafaf7');
+  s+=SR(schedStartX,schY,schedAvailW,schedAvailH,'#ccc',.5,'#fafaf7');
   s+=ST(schedStartX+schedAvailW/2,schY+12,'HOLE SCHEDULE',11,'middle','#000','bold');
 
-  const yRefLabel2=document.getElementById('yRef')?.value==='bot'?'จากล่าง':
-                   document.getElementById('yRef')?.value==='top'?'จากบน':'จากกลาง';
-
   const colDefs=[
-    {h:'N',        ratio:0.5},
-    {h:'หน้า',     ratio:0.7},
-    {h:'X (mm)',   ratio:1.2},
-    {h:'Y (mm)',   ratio:1.2},
-    {h:'Ø (mm)',   ratio:1.0},
-    {h:'PITCH',    ratio:1.2},
+    {h:'N',       ratio:0.45},
+    {h:'FACE',    ratio:0.6},
+    {h:'X (mm)',  ratio:1.1},
+    {h:'Y (mm)',  ratio:1.1},
+    {h:'SIZE',    ratio:1.4},
+    {h:'PITCH',   ratio:1.0},
   ];
   const totalRatio=colDefs.reduce((a,c)=>a+c.ratio,0);
   const unitW=schedAvailW/totalRatio;
@@ -2192,16 +2190,7 @@ function generate(){
   const usedW=scols.slice(0,-1).reduce((a,c)=>a+c.w,0);
   scols[scols.length-1].w=schedAvailW-usedW;
 
-  const SCH_ROW_H=15;
-  const thY2=schY+16;
-  let cx2=schedStartX;
-  scols.forEach(col=>{
-    s+=SR(cx2,thY2,col.w,SCH_ROW_H+2,'#aaa',.4,'#e0dbbf');
-    s+=ST(cx2+col.w/2,thY2+SCH_ROW_H-1,col.h,7.5,'middle','#444','bold');
-    cx2+=col.w;
-  });
-
-  // สร้าง schedule rows จาก holes[] array (ข้อมูลถูกต้อง) แล้วเรียง T→B→W จากนั้นเรียง X
+  // เรียง T→B→W แล้วเรียง X
   const faceOrder={TOP:0,BOT:1,WEB:2};
   const schedRows=[...holes].sort((a,b)=>{
     const fo=(faceOrder[a.face]??2)-(faceOrder[b.face]??2);
@@ -2209,45 +2198,62 @@ function generate(){
     return (parseFloat(a.X)||0)-(parseFloat(b.X)||0);
   });
 
+  // คำนวณ row height ให้ fit พื้นที่จริง (header=17px, เผื่อ legend 44px ล่างสุด)
+  const LEGEND_RESERVE=44;
+  const headerH=17;
+  const availForRows=schedAvailH-headerH-14-LEGEND_RESERVE; // 14=title area
+  const nRows=Math.max(schedRows.length,1);
+  const SCH_ROW_H=Math.min(15, Math.max(9, Math.floor(availForRows/nRows)-1));
+
+  const thY2=schY+16;
+  let cx2=schedStartX;
+  scols.forEach(col=>{
+    s+=SR(cx2,thY2,col.w,headerH,'#aaa',.4,'#e0dbbf');
+    s+=ST(cx2+col.w/2,thY2+headerH-3,col.h,7,'middle','#444','bold');
+    cx2+=col.w;
+  });
+
   schedRows.forEach((h,i)=>{
     const tag  = h.face==='TOP'?'T':h.face==='BOT'?'B':'W';
     const Xstr = h.X!==undefined&&h.X!==''?fmt(parseFloat(h.X)||0):'—';
-    // Y: WEB holes แสดงค่า Y จริง, flange holes แสดง '—'
+    // Y: WEB holes แสดงค่า Y จริง, flange = '—'
     const Ystr = h.face==='WEB'&&h.Y!==undefined&&h.Y!==''?fmt(parseFloat(h.Y)||0):'—';
-    const diaStr = h.dia?`Ø${fmt(h.dia)}`:'—';
+    // SIZE: slot แสดง "18×22 Slot", circle แสดง "Ø18"
+    const sizeStr = h.slot!==false ? `${SLOT_DH}×${SLOT_WH} Slot` : `Ø${fmt(h.dia||18)}`;
     const pitchStr = h.qty>1&&h.pitch>0?`@${fmt(h.pitch)}`:'—';
 
-    const ry=thY2+(SCH_ROW_H+2)*(i+1);
+    const ry=thY2+headerH+SCH_ROW_H*i;
     const bg=i%2===0?'#fafaf7':'#eee8d4';
-    const vals=[String(i+1), tag, Xstr, Ystr, diaStr, pitchStr];
+    const vals=[String(i+1), tag, Xstr, Ystr, sizeStr, pitchStr];
     cx2=schedStartX;
     scols.forEach((col,j)=>{
-      s+=SR(cx2,ry,col.w,SCH_ROW_H+2,'#ddd',.3,bg);
-      const fs=col.w<30?7:col.w<45?8:9;
-      s+=ST(cx2+col.w/2,ry+SCH_ROW_H-1,vals[j],fs,'middle','#111');
+      s+=SR(cx2,ry,col.w,SCH_ROW_H,'#ddd',.3,bg);
+      const fs=Math.min(SCH_ROW_H-4, col.w<30?6:col.w<55?7:8);
+      s+=ST(cx2+col.w/2,ry+SCH_ROW_H-3,vals[j],fs,'middle','#111');
       cx2+=col.w;
     });
   });
   if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
 
-  /* ── HOLE TYPE LEGEND — มุมขวาล่างของ Section zone (ก่อนเส้นแบ่ง schedule) ── */
+  /* ── HOLE TYPE LEGEND — ล่างสุดของ Schedule zone ── */
   {
     const LEG=[
       {type:'H1',label:'H1 — Web slot (×2)'},
       {type:'H2',label:'H2 — Flange slot (T+B)'},
       {type:'H3',label:'H3 — Web circle'},
     ];
-    const lh=12, lgap=3, lbgW=155;
-    const totalH=LEG.length*(lh+lgap)+6;
-    // วางมุมขวาล่างของ section zone (ซ้ายของเส้นแบ่ง SCH_X-8, เว้น margin 6px)
-    const lx=SCH_X-8-lbgW-6;
-    const ly=TB_Y-totalH-10;
-    s+=`<rect x="${r(lx)}" y="${r(ly-2)}" width="${lbgW}" height="${totalH}" rx="3" fill="#f8f8f4" stroke="#ccc" stroke-width="0.5"/>`;
+    const lh=11, lgap=2, lbgW=schedAvailW-8;
+    const totalH=LEG.length*(lh+lgap)+5;
+    const lx=schedStartX+4;
+    const ly=TB_Y-totalH-12;
+    s+=`<rect x="${r(lx)}" y="${r(ly-2)}" width="${r(lbgW)}" height="${r(totalH+2)}" rx="3" fill="#f0ede0" stroke="#bbb" stroke-width="0.5"/>`;
     LEG.forEach((item,i)=>{
       const hs=holeStyle(item.type);
       const iy=ly+i*(lh+lgap)+lh/2+1;
-      s+=SC(lx+10, iy, 4, hs.stroke, .7, hs.fill);
-      s+=ST(lx+20, iy+3.5, item.label, 7.5, 'start', hs.stroke, 'bold');
+      const colW=lbgW/LEG.length;
+      const ix=lx+i*colW+colW/2;
+      s+=SC(ix-colW/2+10, iy, 3.5, hs.stroke, .7, hs.fill);
+      s+=ST(ix-colW/2+18, iy+3, item.label, 6.5, 'start', hs.stroke, 'bold');
     });
   }
 
