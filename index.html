@@ -2201,25 +2201,25 @@ function generate(){
     cx2+=col.w;
   });
 
-  // อ่านโดยตรงจาก DOM rows (ค่าที่ user กรอก ก่อน convert)
-  const domRows=Array.from(document.getElementById('htbody').querySelectorAll('tr'));
-  domRows.forEach((tr,i)=>{
-    const inp=tr.querySelectorAll('input,select');
-    const qty  = inp[0]?.value||'1';
-    const face = tr.querySelector('.face-sel')?.value||'WEB';
-    const X    = tr.querySelector('.x-inp')?.value||'';
-    const rawY = tr.querySelectorAll('input')[1]?.value||'—'; // SP input
-    const tag  = face==='WEB'?'W':face==='TOP'?'T':'B';
+  // สร้าง schedule rows จาก holes[] array (ข้อมูลถูกต้อง) แล้วเรียง T→B→W จากนั้นเรียง X
+  const faceOrder={TOP:0,BOT:1,WEB:2};
+  const schedRows=[...holes].sort((a,b)=>{
+    const fo=(faceOrder[a.face]??2)-(faceOrder[b.face]??2);
+    if(fo!==0) return fo;
+    return (parseFloat(a.X)||0)-(parseFloat(b.X)||0);
+  });
 
-    // หา dia และ pitch จาก holes array ที่ตรงกัน
-    const holeMatch=holes[i];
-    const diaStr   = holeMatch?`Ø${fmt(holeMatch.dia)}`:'—';
-    const pitchStr = holeMatch&&holeMatch.qty>1&&holeMatch.pitch>0
-                     ?`@${fmt(holeMatch.pitch)}`:'—';
+  schedRows.forEach((h,i)=>{
+    const tag  = h.face==='TOP'?'T':h.face==='BOT'?'B':'W';
+    const Xstr = h.X!==undefined&&h.X!==''?fmt(parseFloat(h.X)||0):'—';
+    // Y: WEB holes แสดงค่า Y จริง, flange holes แสดง '—'
+    const Ystr = h.face==='WEB'&&h.Y!==undefined&&h.Y!==''?fmt(parseFloat(h.Y)||0):'—';
+    const diaStr = h.dia?`Ø${fmt(h.dia)}`:'—';
+    const pitchStr = h.qty>1&&h.pitch>0?`@${fmt(h.pitch)}`:'—';
 
     const ry=thY2+(SCH_ROW_H+2)*(i+1);
     const bg=i%2===0?'#fafaf7':'#eee8d4';
-    const vals=[String(i+1), tag, X, rawY, diaStr, pitchStr];
+    const vals=[String(i+1), tag, Xstr, Ystr, diaStr, pitchStr];
     cx2=schedStartX;
     scols.forEach((col,j)=>{
       s+=SR(cx2,ry,col.w,SCH_ROW_H+2,'#ddd',.3,bg);
@@ -2228,26 +2228,26 @@ function generate(){
       cx2+=col.w;
     });
   });
-  if(!domRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
+  if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
 
-  /* ── HOLE TYPE LEGEND — มุมซ้ายล่างของ Section zone ── */
+  /* ── HOLE TYPE LEGEND — มุมขวาล่างของ Section zone (ก่อนเส้นแบ่ง schedule) ── */
   {
     const LEG=[
       {type:'H1',label:'H1 — Web slot (×2)'},
       {type:'H2',label:'H2 — Flange slot (T+B)'},
       {type:'H3',label:'H3 — Web circle'},
     ];
-    const lh=12, lgap=3, lbgW=152;
-    const totalH=LEG.length*(lh+lgap)+4;
-    // มุมซ้ายล่าง: X = ML+4, Y = TB_Y - totalH - 8
-    const lx=ML+4;
-    const ly=TB_Y-totalH-8;
+    const lh=12, lgap=3, lbgW=155;
+    const totalH=LEG.length*(lh+lgap)+6;
+    // วางมุมขวาล่างของ section zone (ซ้ายของเส้นแบ่ง SCH_X-8, เว้น margin 6px)
+    const lx=SCH_X-8-lbgW-6;
+    const ly=TB_Y-totalH-10;
     s+=`<rect x="${r(lx)}" y="${r(ly-2)}" width="${lbgW}" height="${totalH}" rx="3" fill="#f8f8f4" stroke="#ccc" stroke-width="0.5"/>`;
     LEG.forEach((item,i)=>{
       const hs=holeStyle(item.type);
       const iy=ly+i*(lh+lgap)+lh/2+1;
       s+=SC(lx+10, iy, 4, hs.stroke, .7, hs.fill);
-      s+=ST(lx+18, iy+3.5, item.label, 7.5, 'start', hs.stroke, 'bold');
+      s+=ST(lx+20, iy+3.5, item.label, 7.5, 'start', hs.stroke, 'bold');
     });
   }
 
