@@ -1780,9 +1780,9 @@ function generate(){
   const TB_Y=SH-MB;
   const CONTENT_H=TB_Y-MT;
 
-  const WEB_H=Math.round(CONTENT_H*0.32);
+  const WEB_H=Math.round(CONTENT_H*0.30);
   const tvY=MT+WEB_H;
-  const TV_H=Math.round(CONTENT_H*0.13);
+  const TV_H=Math.round(CONTENT_H*0.18);
   const divY=tvY+TV_H;
   const SEC_ZONE_H=TB_Y-divY;
 
@@ -1798,7 +1798,7 @@ function generate(){
   _cboxes.push([0, WX-4, 0, SH]);
   _cboxes.push([WX+webPxW+4, SW, 0, SH]);
 
-  const TV_PAD_T=28, TV_PAD_B=8;
+  const TV_PAD_T=38, TV_PAD_B=8;
   const tvInner=TV_H-TV_PAD_T-TV_PAD_B;
   const tvScale=Math.min(tvInner/(B1+B2eff), scX);
   const tvWebH=(B1+B2eff)*tvScale;
@@ -2198,10 +2198,9 @@ function generate(){
     return (parseFloat(a.X)||0)-(parseFloat(b.X)||0);
   });
 
-  // คำนวณ row height ให้ fit พื้นที่จริง (header=17px, เผื่อ legend 44px ล่างสุด)
-  const LEGEND_RESERVE=44;
+  // คำนวณ row height ให้ fit พื้นที่จริง
   const headerH=17;
-  const availForRows=schedAvailH-headerH-14-LEGEND_RESERVE; // 14=title area
+  const availForRows=schedAvailH-headerH-14;
   const nRows=Math.max(schedRows.length,1);
   const SCH_ROW_H=Math.min(15, Math.max(9, Math.floor(availForRows/nRows)-1));
 
@@ -2235,25 +2234,26 @@ function generate(){
   });
   if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
 
-  /* ── HOLE TYPE LEGEND — ล่างสุดของ Schedule zone ── */
+  /* ── HOLE TYPE LEGEND — มุมล่างซ้ายของหน้า เหนือ Title Block ── */
   {
     const LEG=[
       {type:'H1',label:'H1 — Web slot (×2)'},
       {type:'H2',label:'H2 — Flange slot (T+B)'},
       {type:'H3',label:'H3 — Web circle'},
     ];
-    const lh=11, lgap=2, lbgW=schedAvailW-8;
-    const totalH=LEG.length*(lh+lgap)+5;
-    const lx=schedStartX+4;
-    const ly=TB_Y-totalH-12;
-    s+=`<rect x="${r(lx)}" y="${r(ly-2)}" width="${r(lbgW)}" height="${r(totalH+2)}" rx="3" fill="#f0ede0" stroke="#bbb" stroke-width="0.5"/>`;
+    const lh=11, lgap=3;
+    const cols=LEG.length;
+    const colW=62, lbgW=cols*colW+6;
+    const totalH=lh+6;
+    const lx=ML+2;
+    const ly=TB_Y-totalH-5;
+    s+=`<rect x="${r(lx)}" y="${r(ly)}" width="${r(lbgW)}" height="${r(totalH)}" rx="2" fill="#f0ede0" stroke="#aaa" stroke-width="0.5"/>`;
     LEG.forEach((item,i)=>{
       const hs=holeStyle(item.type);
-      const iy=ly+i*(lh+lgap)+lh/2+1;
-      const colW=lbgW/LEG.length;
-      const ix=lx+i*colW+colW/2;
-      s+=SC(ix-colW/2+10, iy, 3.5, hs.stroke, .7, hs.fill);
-      s+=ST(ix-colW/2+18, iy+3, item.label, 6.5, 'start', hs.stroke, 'bold');
+      const ix=lx+4+i*colW;
+      const iy=ly+totalH/2;
+      s+=SC(ix+4, iy, 3.5, hs.stroke, .7, hs.fill);
+      s+=ST(ix+11, iy+3, item.label, 6, 'start', hs.stroke, 'bold');
     });
   }
 
