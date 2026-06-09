@@ -1786,7 +1786,7 @@ function generate(){
   const divY=tvY+TV_H;
   const SEC_ZONE_H=TB_Y-divY;
 
-  const DPL=42, DPR=16, DPT=40, DPB=30;
+  const DPL=42, DPR=28, DPT=40, DPB=30;
   const eW=(SW-ML-MR)-DPL-DPR;
   const scX=Math.min(eW/L, 2.2);
   const webPxW=L*scX;
@@ -2237,7 +2237,7 @@ function generate(){
   });
   if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
 
-  /* ── HOLE TYPE LEGEND — มุมขวาล่างของ Section zone ชิดขวา ไม่โดน schedule ── */
+  /* ── HOLE TYPE LEGEND — ใต้ label SECTION B-B ไม่มีกรอบ ── */
   {
     const LEG=[
       {type:'H1',label:'H1 — Web slot (×2)'},
@@ -2245,10 +2245,9 @@ function generate(){
       {type:'H3',label:'H3 — Web circle'},
     ];
     const lh=10, lgap=3;
-    // วางข้อความชิดขวา โดยให้ขอบขวาสุดห่างจาก SCH_X อย่างน้อย 10px
-    const lbgW=118; // ความกว้างโดยประมาณของ text
-    const lx=SCH_X-10-lbgW;
-    const ly=TB_Y-LEG.length*(lh+lgap)-4;
+    // วางใต้ section label (secAy+63) ชิดซ้ายของ section B-B
+    const lx=hasSecB ? secBx-B1*secSc : secAx-B1*secSc+4;
+    const ly=secAy+70;
     LEG.forEach((item,i)=>{
       const hs=holeStyle(item.type);
       const iy=ly+i*(lh+lgap)+lh/2;
