@@ -1815,7 +1815,7 @@ function generate(){
   const expanded=expandHoles(holes);
   const hasSecB=(tHoles.length>0||bHoles.length>0);
 
-  // Section layout
+  // Section layout — Section A-A ชิดขอบซ้าย ML เพื่อให้ callout label ไม่ถูก schedule บัง
   const SEC_ZONE_W=Math.round((SW-ML-MR)*0.50);
   const SCH_X=ML+SEC_ZONE_W+8;
   const SCH_W=SW-MR-SCH_X-4;
@@ -1825,8 +1825,8 @@ function generate(){
   const secSc=Math.min(secAvailH/H, (secSlot-60)/(B1+B2eff+D*2+10));
   const secH_px=H*secSc;
   const uniqueHY_all=[...new Set(wHoles.map(h=>h.Y))].sort((a,b)=>a-b);
-  const yDimSpace=(uniqueHY_all.length+1)*22+24;
-  const secAx=ML+yDimSpace+B1*secSc+10;
+  // ชิดขอบซ้าย: web อยู่ที่ ML+B1*secSc, Y dim ยื่นซ้ายเข้า margin ได้
+  const secAx=ML+B1*secSc+10;
   const secAy=divY+16+Math.round((SEC_ZONE_H-secH_px-70)/2)+secH_px;
   const secBx=secAx+(B1+B2eff)*secSc+secSlot*0.52;
   const secBy=secAy;
