@@ -2234,25 +2234,21 @@ function generate(){
   });
   if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
 
-  /* ── HOLE TYPE LEGEND — แนวตั้ง คอลัมน์เดียว ใต้ Section view เหนือ Title Block ── */
+  /* ── HOLE TYPE LEGEND — มุมล่างซ้าย ไม่มีกรอบ ── */
   {
     const LEG=[
       {type:'H1',label:'H1 — Web slot (×2)'},
       {type:'H2',label:'H2 — Flange slot (T+B)'},
       {type:'H3',label:'H3 — Web circle'},
     ];
-    const lh=12, lgap=4, lbgW=130, pad=6;
-    const totalH=LEG.length*(lh+lgap)-lgap+pad*2;
-    // วางกึ่งกลาง Section zone แนวนอน, เหนือ Title Block
-    const secZoneCX=(ML + SCH_X-8)/2;
-    const lx=secZoneCX - lbgW/2;
-    const ly=TB_Y - totalH - 6;
-    s+=`<rect x="${r(lx)}" y="${r(ly)}" width="${r(lbgW)}" height="${r(totalH)}" rx="3" fill="#f0ede0" stroke="#aaa" stroke-width="0.5"/>`;
+    const lh=10, lgap=3;
+    const lx=ML+4;
+    const ly=TB_Y-LEG.length*(lh+lgap)-4;
     LEG.forEach((item,i)=>{
       const hs=holeStyle(item.type);
-      const iy=ly+pad+i*(lh+lgap)+lh/2;
-      s+=SC(lx+12, iy, 4, hs.stroke, .7, hs.fill);
-      s+=ST(lx+22, iy+3.5, item.label, 7, 'start', hs.stroke, 'bold');
+      const iy=ly+i*(lh+lgap)+lh/2;
+      s+=SC(lx+3, iy, 3, hs.stroke, .7, hs.fill);
+      s+=ST(lx+9, iy+3, item.label, 5.5, 'start', hs.stroke, 'bold');
     });
   }
 
