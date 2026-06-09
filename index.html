@@ -2237,7 +2237,7 @@ function generate(){
   });
   if(!schedRows.length) s+=ST(schedStartX+schedAvailW/2,thY2+24,'(ยังไม่มีรูเจาะ)',9,'middle','#bbb');
 
-  /* ── HOLE TYPE LEGEND — มุมล่างซ้าย ไม่มีกรอบ ── */
+  /* ── HOLE TYPE LEGEND — มุมขวาล่างของ Section zone ชิดขวา ไม่โดน schedule ── */
   {
     const LEG=[
       {type:'H1',label:'H1 — Web slot (×2)'},
@@ -2245,7 +2245,9 @@ function generate(){
       {type:'H3',label:'H3 — Web circle'},
     ];
     const lh=10, lgap=3;
-    const lx=ML+4;
+    // วางข้อความชิดขวา โดยให้ขอบขวาสุดห่างจาก SCH_X อย่างน้อย 10px
+    const lbgW=118; // ความกว้างโดยประมาณของ text
+    const lx=SCH_X-10-lbgW;
     const ly=TB_Y-LEG.length*(lh+lgap)-4;
     LEG.forEach((item,i)=>{
       const hs=holeStyle(item.type);
