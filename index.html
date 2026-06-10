@@ -2236,8 +2236,8 @@ function generate(){
     : 1;
   const SLOTS=Math.min(maxN,15);
 
-  const titleH=18, legH=14, headerH=16, dataH=16, sepH=5;
-  const faceColW=56;
+  const titleH=18, legH=18, headerH=21, dataH=21, sepH=6;
+  const faceColW=72;
   const dataAreaW=schedAvailW-faceColW;
   const colW=Math.floor(dataAreaW/SLOTS);
   const extraW=dataAreaW-colW*SLOTS;
@@ -2245,13 +2245,12 @@ function generate(){
   // ── HOLE SCHEDULE title
   const thY=schY+titleH;
 
-  // ── LEGEND sub-header (แถวแรกใน schedule zone แนวนอน 4 items)
+  // ── LEGEND sub-header
   const LEG_ITEMS=[
     {label:'H1 — Web slot (×2)', fill:'#e8f4fd', stroke:'#1a5c8a'},
     {label:'H2 — Top flange',    fill:'#f4e8fd', stroke:'#6b1a8a'},
     {label:'H2 — Bot flange',    fill:'#f4e8fd', stroke:'#6b1a8a'},
     {label:'H3 — Web circle',    fill:'#e8fded', stroke:'#1a6b2e'},
-    {label:'Total length',       fill:'#facc15', stroke:'#a16207'},
   ];
   s+=SR(schedStartX, thY, schedAvailW, legH,'#bbb',.4,'#ede8d0');
   const legItemW=schedAvailW/LEG_ITEMS.length;
@@ -2259,19 +2258,19 @@ function generate(){
     const ix=schedStartX+i*legItemW;
     const icx=ix+legItemW/2;
     const icy=thY+legH/2;
-    s+=SC(ix+8, icy, 3.5, item.stroke, .9, item.fill);
-    s+=ST(ix+14, icy+3, item.label, 5.5, 'start', item.stroke, 'bold');
+    s+=SC(ix+10, icy, 4.5, item.stroke, .9, item.fill);
+    s+=ST(ix+18, icy+3.5, item.label, 7, 'start', item.stroke, 'bold');
   });
 
-  // ── column header row (ช่วง 1..N)
+  // ── column header row
   const colHdrY=thY+legH;
   s+=SR(schedStartX, colHdrY, faceColW, headerH,'#aaa',.4,'#d0cbb0');
-  s+=ST(schedStartX+faceColW/2, colHdrY+headerH-4,'Hole', 8,'middle','#444','bold');
+  s+=ST(schedStartX+faceColW/2, colHdrY+headerH-5,'Hole', 10,'middle','#444','bold');
   for(let c=0;c<SLOTS;c++){
     const cx=schedStartX+faceColW+c*colW;
     const cw=c===SLOTS-1?colW+extraW:colW;
     s+=SR(cx,colHdrY,cw,headerH,'#aaa',.4,'#d0cbb0');
-    s+=ST(cx+cw/2,colHdrY+headerH-4,`${c+1}`,7,'middle','#444','bold');
+    s+=ST(cx+cw/2,colHdrY+headerH-5,`${c+1}`,9,'middle','#444','bold');
   }
 
   let rowY=colHdrY+headerH;
@@ -2295,8 +2294,8 @@ function generate(){
 
     s+=SR(schedStartX, rowY, faceColW, dataH*2,'#ccc',.3,'#ede8d0');
     const lblParts=lbl.split('  ');
-    s+=ST(schedStartX+faceColW/2, rowY+dataH-4,  lblParts[0]||lbl, 7,'middle','#333','bold');
-    s+=ST(schedStartX+faceColW/2, rowY+dataH*2-4, lblParts[1]||'', 6.5,'middle','#555');
+    s+=ST(schedStartX+faceColW/2, rowY+dataH-5,  lblParts[0]||lbl, 9,'middle','#333','bold');
+    s+=ST(schedStartX+faceColW/2, rowY+dataH*2-5, lblParts[1]||'', 8,'middle','#555');
 
     // spacing row (บน) — ขาว
     for(let c=0;c<SLOTS;c++){
@@ -2304,8 +2303,8 @@ function generate(){
       const cw=c===SLOTS-1?colW+extraW:colW;
       s+=SR(cx,rowY,cw,dataH,'#ddd',.3,'#fafaf7');
       if(c<n){
-        const fs=Math.min(8.5,cw<28?6:cw<36?7:8);
-        s+=ST(cx+cw/2,rowY+dataH-4,String(spacing[c]),fs,'middle','#666');
+        const fs=Math.min(11,cw<28?7:cw<36?8:10);
+        s+=ST(cx+cw/2,rowY+dataH-5,String(spacing[c]),fs,'middle','#666');
       }
     }
     rowY+=dataH;
@@ -2314,14 +2313,13 @@ function generate(){
     for(let c=0;c<SLOTS;c++){
       const cx=schedStartX+faceColW+c*colW;
       const cw=c===SLOTS-1?colW+extraW:colW;
-      const isLast=(c===n-1);
       const hasDat=(c<n);
-      const bg=isLast?'#facc15':hasDat?col.fill:'#f0ede0';
-      const tc=isLast?'#713f12':hasDat?col.text:'#ccc';
+      const bg=hasDat?col.fill:'#f0ede0';
+      const tc=hasDat?col.text:'#ccc';
       s+=SR(cx,rowY,cw,dataH,'#ddd',.3,bg);
       if(hasDat){
-        const fs=Math.min(8.5,cw<28?6:cw<36?7:8);
-        s+=ST(cx+cw/2,rowY+dataH-4,String(cumul[c]),fs,'middle',tc,'bold');
+        const fs=Math.min(11,cw<28?7:cw<36?8:10);
+        s+=ST(cx+cw/2,rowY+dataH-5,String(cumul[c]),fs,'middle',tc,'bold');
       }
     }
     rowY+=dataH;
